@@ -1,0 +1,41 @@
+Verifico se a cidade já está registrada no banco
+    Se sim 
+        Retorno os dados dela
+            FIM
+    Se não
+        Verifico a hora esmiuçada do último request (a leitura e edição não pode ser concorrente com outras chamadas)
+            Se for uma diferença maior que 1 segundo
+                Mando requisição
+                Atualizo a hora do último request
+                Após receber a resposta, salvo a resposta nesse json
+                Retorno a resposta
+                FIM
+
+getNominatim(city, state, contry = null, type = "geojson")
+    if city == null
+        Pega só o geojson do estado
+
+{
+    lastRequest: "2022-08-03 16:56:24:232323233",
+    countries: [ //Se for implementar um negócio que precise mostrar o mapa do Brasil todo, considerando um cenário com múltiplos estados ou até múltiplos países (dificilmente vou implementar, mas deixo o terreno preparado)
+        name: contry.name,
+        geojsonRequest: {...}
+    ]
+    states: [
+        name: state.descricao,
+        initials: state.sigla,
+        geojsonRequest: {...}
+    ],
+    cities: [
+        {
+            id: city.id_municipio,
+            name: city.nome,
+            state: {
+                name: state.descricao,
+                initials: state.sigla
+            },
+            coordinateRequest: {...}
+            geojsonRequest: {...}
+        },
+    ]
+}
