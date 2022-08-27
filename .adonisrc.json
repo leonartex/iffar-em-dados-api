@@ -16,8 +16,8 @@
   "preloads": [
     "./start/routes",
     "./start/kernel",
-    "./start/test",
-    "./start/pnp"
+    "./start/pnp",
+    "./start/test"
   ],
   "providers": [
     "./providers/AppProvider",
