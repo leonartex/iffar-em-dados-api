@@ -25,10 +25,10 @@ async function pnp2020(){
     //Primeiro se verifica se já não foram registrados os dados desse ano, para garantir que será executado apenas na primeira vez o registro deles. 
     //Verificação é realizada para cada microdado possível (atualmente apenas matriculas, mas podem ter outras adicionadas no futuro)
 
-    await PnpMatricula
-        .query()
-        .where('ano_base', '2020')
-        .delete()
+    // await PnpMatricula
+    //     .query()
+    //     .where('ano_base', '2020')
+    //     .delete()
 
     const hasMatricula = await PnpMatricula
         .query()
@@ -37,7 +37,7 @@ async function pnp2020(){
 
     if(types.isNull(hasMatricula)){
         //Carrega então o arquivo com os microdados
-        const rows = fs.createReadStream('./tmp/pnp/test-1000.csv')
+        const rows = fs.createReadStream('./tmp/pnp/pnp-matriculas-2020.csv')
         .pipe(parse({ delimiter: ';', columns: true}))
 
         for await (const row of rows){
