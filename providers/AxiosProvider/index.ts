@@ -47,14 +47,6 @@ export default class Index {
       //Baseado em: https://stackoverflow.com/questions/43482639/throttling-axios-requests
       axiosIffar.interceptors.request.use(request => {
         console.log('Tá no interceptor');
-        return request
-
-      })
-
-      //Crio outro interceptor, para verificar se o dado já existe no cache e se o dado em cache não é antigo demais também
-      //Baseado em: https://stackoverflow.com/questions/62686283/axios-how-to-intercept-and-respond-to-axios-request
-      axiosIffar.interceptors.request.use(request => {
-        console.log('Tá em outro interceptor');
         
         //Atualizo o tempo de "última requisição" antes mesmo de aguardar o tempo de espera para enviar a requisição. Isso faz com que qualquer outra requisição que chegar no meio tempo entre o intervalo dessa requisição e o seu envio tenha que aguardar ainda esse intervalo também
         let actualWaitingTime = this.app.container.use('LastRequest/Iffar').requestWaitingInterval(); //Preciso armazenar o tempo de espera atual, já que abaixo irei atualizar o novo tempo de lastRequestTime, e ele representará o tempo futuro. Se não fizer isso, a requisição atual iria aguardar o seu próprio intervalo criado por ela (eu acho)
@@ -68,6 +60,14 @@ export default class Index {
             actualWaitingTime
           )
         });
+      })
+
+      //Crio outro interceptor, para verificar se o dado já existe no cache e se o dado em cache não é antigo demais também
+      //Baseado em: https://stackoverflow.com/questions/62686283/axios-how-to-intercept-and-respond-to-axios-request
+      axiosIffar.interceptors.request.use(request => {
+        console.log('Tá em outro interceptor');
+        
+        return request
       })
       
       
