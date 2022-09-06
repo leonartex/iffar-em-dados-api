@@ -1,7 +1,9 @@
 // import type { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 
-import axios from "axios";
+//import axios from "axios";
+import AxiosIffar from '@ioc:Axios/Iffar';
 import util from "util";
+
 
 import UnidadeOrganizacional from "App/Models/iffar/UnidadeOrganizacional";
 import MunicipiosController from "./MunicipiosController";
@@ -10,8 +12,8 @@ export default class UnidadesOrganizacionaisController {
     public async listEducationalUnits(): Promise<Array<UnidadeOrganizacional>>{
         // Campus e campus avançado
         // unidade_responsavel=672     INSTITUTO FEDERAL FARROUPILHA
-        let unitsCampus = await axios
-            .get('https://dados.iffarroupilha.edu.br/api/v1/unidades-organizacionais.json?ativo=1&unidade_responsavel=672')
+        let unitsCampus = await AxiosIffar
+            .get('unidades-organizacionais.json?ativo=1&unidade_responsavel=672')
             .then(res => {
                 return res.data.data
             })
@@ -62,8 +64,10 @@ export default class UnidadesOrganizacionaisController {
     }
 
     public async get(unitId: number): Promise<UnidadeOrganizacional>{
-        let unit = await axios
-            .get(`https://dados.iffarroupilha.edu.br/api/v1/unidades-organizacionais.json?id_unidade=${unitId}`)
+        let url = 'unidades-organizacionais.json?';
+        url += 'id_unidade='+unitId;
+        let unit = await AxiosIffar
+            .get(url)
             .then(res => {
                 return res.data.data[0];
             })

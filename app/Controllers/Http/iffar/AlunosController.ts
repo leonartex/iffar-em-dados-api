@@ -1,20 +1,21 @@
 // import type { HttpContextContract } from '@ioc:Adonis/Core/HttpContext'
 import { types } from '@ioc:Adonis/Core/Helpers'
+import AxiosIffar from '@ioc:Axios/Iffar';
 
 import Aluno from "App/Models/iffar/Aluno";
-import axios from 'axios';
+//import axios from 'axios';
 
 export default class AlunosController {
     //O offset é definido para, caso uma resposta traga um resultado com 10000 registros, ele recursivamente solicitar a lista com mais 10000 de offset, até não existir mais registros além deles
     //Se quiser pegar todos os alunos de determinado curso apenas é necessário não setar o atributo year
     public async getStudentsFromCourse(courseId: number, offset: number = 0, year?: number): Promise<Array<Aluno>>{
-        let url = 'https://dados.iffarroupilha.edu.br/api/v1/alunos.json?';
+        let url = 'alunos.json?';
         url += `id_curso=${courseId}&`;
         if(!types.isUndefined(year))
             url += `ano_ingresso=${year}&`;
         url += `offset=${offset}`;
 
-        let students: Array<Aluno> = await axios 
+        let students: Array<Aluno> = await AxiosIffar 
             .get(url)
             .then(res => {                    
                 return res.data.data;

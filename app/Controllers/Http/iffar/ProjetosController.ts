@@ -6,12 +6,14 @@ import UnidadeOrganizacional from "App/Models/iffar/UnidadeOrganizacional";
 import axios from "axios";
 import UnidadesOrganizacionaisController from "./UnidadesOrganizacionaisController";
 
+import AxiosIffar from '@ioc:Axios/Iffar';
+
 export default class ProjetosController {
     //Retorna um único projeto (talvez nem seja utilizado)
     public async get(projectId: number): Promise<Projeto>{
-        let url = 'https://dados.iffarroupilha.edu.br/api/v1/projetos.json?';
+        let url = 'projetos.json?';
         url += 'id_projeto='+projectId;
-        let project = await axios
+        let project = await AxiosIffar
             .get(url)
             .then(res => {
                 return res.data.data[0]
@@ -50,8 +52,8 @@ export default class ProjetosController {
 
     //Retorna todos os projetos 
     public async getAll(): Promise<Array<Projeto>>{
-        let url = 'https://dados.iffarroupilha.edu.br/api/v1/projetos.json?';
-        let projects = await axios
+        let url = 'projetos.json?';
+        let projects = await AxiosIffar
             .get(url)
             .then(res => {
                 return res.data.data
