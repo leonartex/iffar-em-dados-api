@@ -59,7 +59,8 @@ export default class PnpMatriculasController {
      *          
      */
     //TODO: Criar função para que se verifique se existem alunos matriculados em determinado ano no curso (dados abertos do IFFar) e que se não encontrar curso ou matrículas no mesmo ano base da PNP, notifique ou registre isso. Serviria para detectar problemas de integridade nos dados, na PNP ou por parte do IFFar (o mais provável)
-    public async getCourse(course: Curso): Promise<Array<PnpMatricula>>{
+    //O atributo onlyInfo define se busca-se apenas as informações sobre o curso que a PNP adiciona, limitando, então, o retorno de apenas uma consulta. Importante para quando apenas busca-se as informações do curso, não necessitando desperdiçar recurso buscando todas as matrículas
+    public async getCourse(course: Curso, onlyInfo:boolean = false): Promise<Array<PnpMatricula>>{
         /**
          * Preciso pensar na lógica de lista de exceções, onde associo um curso_id dos dados do IFFar com o ('nomeMunicipio', 'modalidadeDeEnsino', 'tipoDeCurso', 'tipoDeOferta' e 'nomeDeCurso') da PNP
          * Utilizo banco para isso?
@@ -107,13 +108,23 @@ export default class PnpMatriculasController {
         //Pego então as matrículas em si da PNP. Inicializo por padrão o vetor para caso não haja curso ( if(nomeDeCurso.length > 0) ), retorne pelo menos um vetor vazio
         let pnpMatriculas: Array<PnpMatricula> = [];
         if(nomeDeCurso.length > 0){
-            pnpMatriculas = await PnpMatricula
-                .query()
-                .where('nomeMunicipio', city.nome)
-                .where('modalidadeDeEnsino', modalidadeDeEnsino)
-                .where('tipoDeCurso', tipoDeCurso)
-                .where('tipoDeOferta', tipoDeOferta)
-                .where('nomeDeCurso', nomeDeCurso);
+            if(onlyInfo == true)
+                pnpMatriculas = await PnpMatricula
+                    .query()
+                    .where('nomeMunicipio', city.nome)
+                    .where('modalidadeDeEnsino', modalidadeDeEnsino)
+                    .where('tipoDeCurso', tipoDeCurso)
+                    .where('tipoDeOferta', tipoDeOferta)
+                    .where('nomeDeCurso', nomeDeCurso)
+                    .limit(1);
+            else
+                    pnpMatriculas = await PnpMatricula
+                        .query()
+                        .where('nomeMunicipio', city.nome)
+                        .where('modalidadeDeEnsino', modalidadeDeEnsino)
+                        .where('tipoDeCurso', tipoDeCurso)
+                        .where('tipoDeOferta', tipoDeOferta)
+                        .where('nomeDeCurso', nomeDeCurso);
             console.log('Quantia de matrículas: '+pnpMatriculas.length);
         }
         

@@ -23,7 +23,8 @@
     "./providers/AppProvider",
     "@adonisjs/core",
     "@adonisjs/lucid",
-    "./providers/PnpProvider"
+    "./providers/PnpProvider",
+    "./providers/AxiosProvider"
   ],
   "aceProviders": [
     "@adonisjs/repl"

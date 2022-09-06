@@ -56,6 +56,7 @@
     "@adonisjs/lucid": "^18.1.0",
     "@adonisjs/repl": "^3.1.11",
     "@turf/turf": "^6.5.0",
+    "agentkeepalive": "^4.2.1",
     "axios": "^0.27.2",
     "csv": "^6.2.0",
     "luxon": "^3.0.1",
