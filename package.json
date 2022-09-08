@@ -54,6 +54,7 @@
   "dependencies": {
     "@adonisjs/core": "^5.8.5",
     "@adonisjs/lucid": "^18.1.0",
+    "@adonisjs/redis": "^7.3.1",
     "@adonisjs/repl": "^3.1.11",
     "@turf/turf": "^6.5.0",
     "agentkeepalive": "^4.2.1",

@@ -24,7 +24,8 @@
     "@adonisjs/core",
     "@adonisjs/lucid",
     "./providers/PnpProvider",
-    "./providers/AxiosProvider"
+    "./providers/AxiosProvider",
+    "@adonisjs/redis"
   ],
   "aceProviders": [
     "@adonisjs/repl"

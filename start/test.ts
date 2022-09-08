@@ -11,6 +11,8 @@ import ProjetosController from 'App/Controllers/Http/iffar/ProjetosController';
 import AxiosIffar from '@ioc:Axios/Iffar';
 import LastRequestIffar from '@ioc:LastRequest/Iffar';
 
+import Redis from '@ioc:Adonis/Addons/Redis';
+
 a();
 
 async function a() {
@@ -18,9 +20,9 @@ async function a() {
     let campus = await unidadesC.get(41);
     console.log('Campus: '+util.inspect(campus.nome));
 
-    // const projetosC = new ProjetosController();
-    // let projetos = await projetosC.getFromUnit(campus);
-    // console.log(util.inspect(projetos[0]));
+    const projetosC = new ProjetosController();
+    let projetos = await projetosC.getFromUnit(campus);
+    console.log(util.inspect(projetos[0]));
 
     // console.log('LastRequest: '+LastRequestIffar.lastRequestTime);
     // LastRequestIffar.updateTime(Date.now());
