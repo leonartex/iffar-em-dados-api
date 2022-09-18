@@ -22,7 +22,7 @@ async function a() {
 
     const projetosC = new ProjetosController();
     let projetos = await projetosC.getFromUnit(campus);
-    console.log(util.inspect(projetos[0]));
+    console.log(util.inspect(projetos.length));
 
     // console.log('LastRequest: '+LastRequestIffar.lastRequestTime);
     // LastRequestIffar.updateTime(Date.now());

@@ -32,7 +32,7 @@ export default class Index {
     //Crio um singleton para se ter um dado "global" contendo o tempo do último request enviado para determinada API, neste caso, para a API do IFFar. Por ser singleton, cria-se uma única instância, permitindo acessar o mesmo dado em diferentes lugares
     this.app.container.singleton('LastRequest/Iffar', () => {
       let lastRequestIffar = new LastRequest();
-      lastRequestIffar.setInterval(2000); //Defino o intervalo para a API dos dados abertos do IFFar
+      lastRequestIffar.setInterval(50); //Defino o intervalo para a API dos dados abertos do IFFar
 
       return lastRequestIffar;
     })
@@ -61,51 +61,51 @@ export default class Index {
       //Controle do envio de cache baseado em: https://github.com/axios/axios/issues/1666#issuecomment-607625254
       //Existe uma outra alternativa meio gambiarra: https://stackoverflow.com/questions/62686283/axios-how-to-intercept-and-respond-to-axios-request
       //O objetivo era que fossem criados dois interceptors distintos: um para controlar o timing das requisições e outro, que executasse antes, para verificar a existência do cache, retornando a resposta com os dados antes mesmo de enviar a requisição, contudo, não foi possível implementar isso, conforme a estratégia de envio de cache utilizada (o envio da resposta com o cache não impedia a passagem pelo outro interceptor)
-      axiosIffar.interceptors.request.use(async config => {
-        let healthReport = await this.app.container.use('Adonis/Core/HealthCheck').getReport();
-        let redisHealth = healthReport.report.redis.health; //Pego os dados específicos sobre a saúde da conexão com o Redis
-        if (redisHealth.healthy) { //Checo se está saudável a conexão
-          console.log('Conexão Redis ok')
-          //Verifico se existe os dados requisitados no cache
-          let keyName = this.redisKeyNameApi(config);
-          let cache = await this.app.container.use('Adonis/Addons/Redis').get(keyName)
-          if(cache){
-            //Existindo cache, retorno então uma resposta já previamente formulada contendo os dados do cache. Dessa forma a requisição não é nem enviada para a API externa, retornando o dado necessário
-            config.adapter = function (config) {
-              return new Promise((resolve, reject) => {
-                const res = {
-                  data: cache,
-                  status: 200,
-                  statusText: "OK",
-                  headers: { "content-type": "text/plain; charset=utf-8" },
-                  config,
-                  request: {},
-                  isCache: true //Adiciono esse atributo para indicar ser cache, assim, pulando a o registro desnecessário da resposta no Redis no interceptor de respostas
-                };
+      // axiosIffar.interceptors.request.use(async config => {
+      //   let healthReport = await this.app.container.use('Adonis/Core/HealthCheck').getReport();
+      //   let redisHealth = healthReport.report.redis.health; //Pego os dados específicos sobre a saúde da conexão com o Redis
+      //   if (redisHealth.healthy) { //Checo se está saudável a conexão
+      //     console.log('Conexão Redis ok')
+      //     //Verifico se existe os dados requisitados no cache
+      //     let keyName = this.redisKeyNameIffarApi(config);
+      //     let cache = await this.app.container.use('Adonis/Addons/Redis').get(keyName)
+      //     if(cache){
+      //       //Existindo cache, retorno então uma resposta já previamente formulada contendo os dados do cache. Dessa forma a requisição não é nem enviada para a API externa, retornando o dado necessário
+      //       config.adapter = function (config) {
+      //         return new Promise((resolve, reject) => {
+      //           const res = {
+      //             data: cache,
+      //             status: 200,
+      //             statusText: "OK",
+      //             headers: { "content-type": "text/plain; charset=utf-8" },
+      //             config,
+      //             request: {},
+      //             isCache: true //Adiciono esse atributo para indicar ser cache, assim, pulando a o registro desnecessário da resposta no Redis no interceptor de respostas
+      //           };
         
-                return resolve(res);
-              });
+      //           return resolve(res);
+      //         });
         
-            }
-          }
-          return config //Envio o AxiosRequestConfig com os dados do cache
-        }
+      //       }
+      //     }
+      //     return config //Envio o AxiosRequestConfig com os dados do cache
+      //   }
 
-        //Se não retornou a config da request até aqui, segue para o processo de envio da requisição, realizando o controle de tempo entre uma requisição e outra
+      //   //Se não retornou a config da request até aqui, segue para o processo de envio da requisição, realizando o controle de tempo entre uma requisição e outra
 
-        //Atualizo o tempo de "última requisição" antes mesmo de aguardar o tempo de espera para enviar a requisição. Isso faz com que qualquer outra requisição que chegar no meio tempo entre o intervalo dessa requisição e o seu envio tenha que aguardar ainda esse intervalo também
-        let actualWaitingTime = this.app.container.use('LastRequest/Iffar').requestWaitingInterval(); //Preciso armazenar o tempo de espera atual, já que abaixo irei atualizar o novo tempo de lastRequestTime, e ele representará o tempo futuro. Se não fizer isso, a requisição atual iria aguardar o seu próprio intervalo criado por ela (eu acho)
-        let futureLastRequestTime = Date.now() + this.app.container.use('LastRequest/Iffar').requestWaitingInterval(); //Tempo atual + intervalo de espera = indica quando que será enviada a requisição atual (deverá ser usado apenas para as requisições seguintes que forem enviadas)
-        this.app.container.use('LastRequest/Iffar').updateTime(futureLastRequestTime);
+      //   //Atualizo o tempo de "última requisição" antes mesmo de aguardar o tempo de espera para enviar a requisição. Isso faz com que qualquer outra requisição que chegar no meio tempo entre o intervalo dessa requisição e o seu envio tenha que aguardar ainda esse intervalo também
+      //   let actualWaitingTime = this.app.container.use('LastRequest/Iffar').requestWaitingInterval(); //Preciso armazenar o tempo de espera atual, já que abaixo irei atualizar o novo tempo de lastRequestTime, e ele representará o tempo futuro. Se não fizer isso, a requisição atual iria aguardar o seu próprio intervalo criado por ela (eu acho)
+      //   let futureLastRequestTime = Date.now() + this.app.container.use('LastRequest/Iffar').requestWaitingInterval(); //Tempo atual + intervalo de espera = indica quando que será enviada a requisição atual (deverá ser usado apenas para as requisições seguintes que forem enviadas)
+      //   this.app.container.use('LastRequest/Iffar').updateTime(futureLastRequestTime);
         
-        //Aguardo o tempo de espera
-        return new Promise((resolve) => { //Envelopo a request dentro de uma Promise
-          setTimeout( //Aguardo o tempo de espera para enviar a requisição
-            () => resolve(config),
-            actualWaitingTime
-          )
-        });
-      })
+      //   //Aguardo o tempo de espera
+      //   return new Promise((resolve) => { //Envelopo a request dentro de uma Promise
+      //     setTimeout( //Aguardo o tempo de espera para enviar a requisição
+      //       () => resolve(config),
+      //       actualWaitingTime
+      //     )
+      //   });
+      // })
       
       //Crio outro interceptor, para armazenar o dado no cache após receber a resposta das requisições
       axiosIffar.interceptors.response.use(async response => {
@@ -117,9 +117,16 @@ export default class Index {
         let healthReport = await this.app.container.use('Adonis/Core/HealthCheck').getReport();
         let redisHealth = healthReport.report.redis.health; //Pego os dados específicos sobre a saúde da conexão com o Redis
         if (redisHealth.healthy) { //Checo se está saudável a conexão
-          let keyName = this.redisKeyNameApi(response);
-          this.app.container.use('Adonis/Addons/Redis').set(keyName, JSON.stringify(response.data))
-            .then(() => {return response})
+          let keyName = this.redisKeyNameIffarApi(response);
+          this.app.container.use('Adonis/Addons/Redis').set(keyName, JSON.stringify(response.data), ) //Adiciono no Redis o cache da requisição
+            .then(() => { 
+              //Adiciono um tempo para expirar o cache
+              let baseTime = 24 * 60 * 60 //Tempo base de 4 horas. É um longo tempo, mas os dados abertos do IFFar possuem níveis extremamente baixos de atualização. Um atraso de 4-5 horas para atualizar seus valores não seria algo prejudicial, ao mesmo tempo que tornaria mais eficiente a entrega dos dados para o front-end
+              let randomAddTime = Math.floor(Math.random() * ((60*60) - (1) + 1) + (1))//Adiciono um número aletório de segundos em um intervalo de 1 segundo a 1 hora. Serve para diminuir as chances de que precise enviar todas as requisições de uma página ao mesmo tempo para montar a página, prejudincando esse usuário com um maior tempo de espera
+              this.app.container.use('Adonis/Addons/Redis').expire(keyName, baseTime+randomAddTime)
+                .then(() => {return response})
+                .catch(() => {return response})
+            })
             .catch(() => {return response}) //Se não conseguir armazenar no Redis por causa de algum problema, retorna a response (o cache serve para auxiliar, não para ser a base da aplicação)
         }
 
@@ -152,7 +159,7 @@ export default class Index {
     // Cleanup, since app is going down
   }
 
-  private redisKeyNameApi(reqRes: AxiosRequestConfig | AxiosResponse | any){
+  private redisKeyNameIffarApi(reqRes: AxiosRequestConfig | AxiosResponse | any){
     //Verifico se o reqRes é uma request ou uma response, para utilizar o atributo correto contendo o dado da url
     let url: string;
     if(reqRes.url != undefined) //É uma request

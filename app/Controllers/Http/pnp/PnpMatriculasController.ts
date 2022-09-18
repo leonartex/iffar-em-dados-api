@@ -11,14 +11,22 @@ import UnidadesOrganizacionaisController from "../iffar/UnidadesOrganizacionaisC
 export default class PnpMatriculasController {
 
     //Pega as matrículas do IFFar como um todo (leia-se: não define município ou outro atributo como filtro no select, praticamente sem WHERE)
-    public async getIffar(): Promise<Array<PnpMatricula>>{
-        let pnpMatriculas = await PnpMatricula
-            .query();
+    public async getAll(onlyInfo = false): Promise<Array<PnpMatricula>>{
+        let pnpMatriculas: Array<PnpMatricula>
+        //Se eu quiser retornar apenas as informações contidas sobre cursos no PNP de todos os cursos, eu agrupo as matrículas conforme o conjunto de atributos que diferenciam os cursos entre si
+        if(onlyInfo == true)
+            pnpMatriculas = await PnpMatricula
+                .query()
+                .groupBy('nomeMunicipio','modalidadeDeEnsino','tipoDeCurso', 'tipoDeOferta', 'nomeDeCurso');
+        else
+            pnpMatriculas = await PnpMatricula
+                .query();
+
         return pnpMatriculas;
     }
 
     //TODO num futuro: Poder definir pegar do município ou de unidade específica (ex.: uma instituição que tivesse mais de uma unidade de ensino em uma mesma cidade. No caso do IFFar, atualmente, apenas a cidade já é o suficiente)
-    public async getUnit(unit: UnidadeOrganizacional): Promise<Array<PnpMatricula>>{
+    public async getUnit(unit: UnidadeOrganizacional, onlyInfo = false): Promise<Array<PnpMatricula>>{
         console.log('Unidade: '+util.inspect(unit.nome));
 
         //Pego os dados do município da unidade organizacional do curso
@@ -26,13 +34,23 @@ export default class PnpMatriculasController {
         let city = await municipiosC.get(unit.id_municipio);
         console.log('Cidade: '+util.inspect(city.nome));
         
-        let pnpMatriculas = await PnpMatricula
-            .query()
-            .where('nomeMunicipio', city.nome);
+        let pnpMatriculas: Array<PnpMatricula>;
+
+        //Para o caso de apenas pegar as informações sobre os cursos de uma unidade em específico, realizo o mesmo agrupamento que o anterior, porém, utilizando o nomeMunicipio no where e não no groupBy
+        if(onlyInfo == true)
+            pnpMatriculas = await PnpMatricula
+                .query()
+                .where('nomeMunicipio', city.nome)
+                .groupBy('modalidadeDeEnsino','tipoDeCurso', 'tipoDeOferta', 'nomeDeCurso');
+        else
+            pnpMatriculas = await PnpMatricula
+                .query()
+                .where('nomeMunicipio', city.nome);
+
         return pnpMatriculas;
     }
 
-    //Questiono: crio funções para outros tipo de filtro das matrículas ou apenas pego todas as matrículas de uma unidade, ou do IFFar todo, e utilizo um filter() para conseguir o que quero? Outra opção, setar atributos nas funções getUnit() e getIffar()
+    //Questiono: crio funções para outros tipos de filtro das matrículas ou apenas pego todas as matrículas de uma unidade, ou do IFFar todo, e utilizo um filter() para conseguir o que quero? Outra opção, setar atributos nas funções getUnit() e getIffar()
     //Talvez faça sentido fazer funções específicas se forem criadas páginas específicas para esses outros tipos de filtros)
 
     
@@ -108,6 +126,7 @@ export default class PnpMatriculasController {
         //Pego então as matrículas em si da PNP. Inicializo por padrão o vetor para caso não haja curso ( if(nomeDeCurso.length > 0) ), retorne pelo menos um vetor vazio
         let pnpMatriculas: Array<PnpMatricula> = [];
         if(nomeDeCurso.length > 0){
+            //Para pegar apenas informações adicionais sobre o curso, limita-se os resultados para 1
             if(onlyInfo == true)
                 pnpMatriculas = await PnpMatricula
                     .query()

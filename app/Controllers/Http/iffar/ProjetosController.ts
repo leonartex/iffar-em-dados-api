@@ -31,21 +31,15 @@ export default class ProjetosController {
         let allProjects = await this.getAll();
         
         const unidadesC = new UnidadesOrganizacionaisController();
-        //Realizo a filtragem
-        let i = 0;
-        let projects = allProjects.filter(await async function(project){
-            let projectUnit = await unidadesC.get(project.id_unidade);
-            console.log(util.inspect(projectUnit.nome));
-            console.log(i++);
-            console.log('Municipio do projeto: '+projectUnit.id_municipio);
-            console.log('Municipio do campus: '+campus.id_municipio);
-            console.log(Date.now().toString())
-            await async function(){setTimeout(await async function(){}, 1000);}
-            console.log(Date.now().toString()+'\n')
+        //Realizo a filtragem (filter não é async, então tenho que fazer na mão a filtragem). O lado negativo de realizar dessa forma a filtragem é que é necessário esperar a resposta de uma requisição para poder seguir para o outro projeto, demorando bastante caso não haja cache (por sorte, há)
+        let projects: Array<Projeto> = [];
+        for(let i = 0; i < allProjects.length; i++){
+            console.log(i)
+            let projectUnit = await unidadesC.get(allProjects[i].id_unidade);
             //Verifico se o id do municipio do
-            return projectUnit.id_municipio == campus.id_municipio;
-        })
-        console.log(i);
+            if(projectUnit.id_municipio == campus.id_municipio)
+                projects.push(allProjects[i]);
+        }
 
         return projects;
     }

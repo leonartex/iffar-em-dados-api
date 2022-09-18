@@ -8,3 +8,7 @@ Feito:
 Fazendo:
 
 - Armazenar e, posteriormente, associar os dados de matrículas da Plataforma Nilo Peçanha (PNP) com os cursos registrados na API de dados abertos do IFFar
+
+Objetivos opcionais: 
+
+- Implementar versão de foreach e filter que espere o resolve das promises que enviam requisições
