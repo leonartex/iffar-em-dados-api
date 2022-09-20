@@ -61,51 +61,51 @@ export default class Index {
       //Controle do envio de cache baseado em: https://github.com/axios/axios/issues/1666#issuecomment-607625254
       //Existe uma outra alternativa meio gambiarra: https://stackoverflow.com/questions/62686283/axios-how-to-intercept-and-respond-to-axios-request
       //O objetivo era que fossem criados dois interceptors distintos: um para controlar o timing das requisições e outro, que executasse antes, para verificar a existência do cache, retornando a resposta com os dados antes mesmo de enviar a requisição, contudo, não foi possível implementar isso, conforme a estratégia de envio de cache utilizada (o envio da resposta com o cache não impedia a passagem pelo outro interceptor)
-      // axiosIffar.interceptors.request.use(async config => {
-      //   let healthReport = await this.app.container.use('Adonis/Core/HealthCheck').getReport();
-      //   let redisHealth = healthReport.report.redis.health; //Pego os dados específicos sobre a saúde da conexão com o Redis
-      //   if (redisHealth.healthy) { //Checo se está saudável a conexão
-      //     console.log('Conexão Redis ok')
-      //     //Verifico se existe os dados requisitados no cache
-      //     let keyName = this.redisKeyNameIffarApi(config);
-      //     let cache = await this.app.container.use('Adonis/Addons/Redis').get(keyName)
-      //     if(cache){
-      //       //Existindo cache, retorno então uma resposta já previamente formulada contendo os dados do cache. Dessa forma a requisição não é nem enviada para a API externa, retornando o dado necessário
-      //       config.adapter = function (config) {
-      //         return new Promise((resolve, reject) => {
-      //           const res = {
-      //             data: cache,
-      //             status: 200,
-      //             statusText: "OK",
-      //             headers: { "content-type": "text/plain; charset=utf-8" },
-      //             config,
-      //             request: {},
-      //             isCache: true //Adiciono esse atributo para indicar ser cache, assim, pulando a o registro desnecessário da resposta no Redis no interceptor de respostas
-      //           };
+      axiosIffar.interceptors.request.use(async config => {
+        let healthReport = await this.app.container.use('Adonis/Core/HealthCheck').getReport();
+        let redisHealth = healthReport.report.redis.health; //Pego os dados específicos sobre a saúde da conexão com o Redis
+        if (redisHealth.healthy) { //Checo se está saudável a conexão
+          console.log('Conexão Redis ok')
+          //Verifico se existe os dados requisitados no cache
+          let keyName = this.redisKeyNameIffarApi(config);
+          let cache = await this.app.container.use('Adonis/Addons/Redis').get(keyName)
+          if(cache){
+            //Existindo cache, retorno então uma resposta já previamente formulada contendo os dados do cache. Dessa forma a requisição não é nem enviada para a API externa, retornando o dado necessário
+            config.adapter = function (config) {
+              return new Promise((resolve, reject) => {
+                const res = {
+                  data: cache,
+                  status: 200,
+                  statusText: "OK",
+                  headers: { "content-type": "text/plain; charset=utf-8" },
+                  config,
+                  request: {},
+                  isCache: true //Adiciono esse atributo para indicar ser cache, assim, pulando a o registro desnecessário da resposta no Redis no interceptor de respostas
+                };
         
-      //           return resolve(res);
-      //         });
+                return resolve(res);
+              });
         
-      //       }
-      //     }
-      //     return config //Envio o AxiosRequestConfig com os dados do cache
-      //   }
+            }
+          }
+          return config //Envio o AxiosRequestConfig com os dados do cache
+        }
 
-      //   //Se não retornou a config da request até aqui, segue para o processo de envio da requisição, realizando o controle de tempo entre uma requisição e outra
+        //Se não retornou a config da request até aqui, segue para o processo de envio da requisição, realizando o controle de tempo entre uma requisição e outra
 
-      //   //Atualizo o tempo de "última requisição" antes mesmo de aguardar o tempo de espera para enviar a requisição. Isso faz com que qualquer outra requisição que chegar no meio tempo entre o intervalo dessa requisição e o seu envio tenha que aguardar ainda esse intervalo também
-      //   let actualWaitingTime = this.app.container.use('LastRequest/Iffar').requestWaitingInterval(); //Preciso armazenar o tempo de espera atual, já que abaixo irei atualizar o novo tempo de lastRequestTime, e ele representará o tempo futuro. Se não fizer isso, a requisição atual iria aguardar o seu próprio intervalo criado por ela (eu acho)
-      //   let futureLastRequestTime = Date.now() + this.app.container.use('LastRequest/Iffar').requestWaitingInterval(); //Tempo atual + intervalo de espera = indica quando que será enviada a requisição atual (deverá ser usado apenas para as requisições seguintes que forem enviadas)
-      //   this.app.container.use('LastRequest/Iffar').updateTime(futureLastRequestTime);
+        //Atualizo o tempo de "última requisição" antes mesmo de aguardar o tempo de espera para enviar a requisição. Isso faz com que qualquer outra requisição que chegar no meio tempo entre o intervalo dessa requisição e o seu envio tenha que aguardar ainda esse intervalo também
+        let actualWaitingTime = this.app.container.use('LastRequest/Iffar').requestWaitingInterval(); //Preciso armazenar o tempo de espera atual, já que abaixo irei atualizar o novo tempo de lastRequestTime, e ele representará o tempo futuro. Se não fizer isso, a requisição atual iria aguardar o seu próprio intervalo criado por ela (eu acho)
+        let futureLastRequestTime = Date.now() + this.app.container.use('LastRequest/Iffar').requestWaitingInterval(); //Tempo atual + intervalo de espera = indica quando que será enviada a requisição atual (deverá ser usado apenas para as requisições seguintes que forem enviadas)
+        this.app.container.use('LastRequest/Iffar').updateTime(futureLastRequestTime);
         
-      //   //Aguardo o tempo de espera
-      //   return new Promise((resolve) => { //Envelopo a request dentro de uma Promise
-      //     setTimeout( //Aguardo o tempo de espera para enviar a requisição
-      //       () => resolve(config),
-      //       actualWaitingTime
-      //     )
-      //   });
-      // })
+        //Aguardo o tempo de espera
+        return new Promise((resolve) => { //Envelopo a request dentro de uma Promise
+          setTimeout( //Aguardo o tempo de espera para enviar a requisição
+            () => resolve(config),
+            actualWaitingTime
+          )
+        });
+      })
       
       //Crio outro interceptor, para armazenar o dado no cache após receber a resposta das requisições
       axiosIffar.interceptors.response.use(async response => {
@@ -178,7 +178,7 @@ export default class Index {
     //console.log(params);
 
     let keyName = `${apiName}:${databaseName[0]}:${params[1]}`; //O nome final da key que será utilizada no Redis
-    console.log('KeyName: '+keyName);
+    //console.log('KeyName: '+keyName);
     return keyName;
   }
 }

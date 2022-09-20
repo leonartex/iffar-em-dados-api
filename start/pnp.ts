@@ -77,7 +77,7 @@ async function registerEnrollment(row){
         let matricula = new PnpMatricula();
         matricula.anoBase = '2020';
 
-        //Já que a estrutura do PnpMatricula leva como base o PNP do ano base de 2020, aqui apenas normaliza-se e converte-se para camelCase o nome da propriedade para adicionar ao objeto, desconsiderando as exceções
+        //Já que a estrutura do PnpMatricula leva como base a PNP do ano base de 2020, aqui apenas normaliza-se e converte-se para camelCase o nome da propriedade para adicionar ao objeto, desconsiderando as exceções
         for(let property in row){
             //Normalizo o nome da propriedade, para remover acentuação sem perder os caracteres
             let propertyNormalized = property.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -91,7 +91,7 @@ async function registerEnrollment(row){
             matricula[propertyCamelCase] = row[property];                
         }
 
-        //Já que o PNP de anos base 2020 não tem o nome do município, apenas o código do IBGE, utilizo a API do IBGE para pegar o nome da cidade e então registrar junto
+        //Já que a PNP de anos base 2020 não tem o nome do município, apenas o código do IBGE, utilizo a API do IBGE para pegar o nome da cidade e então registrar junto
         //console.log("Cidade: "+matricula.codigoDoMunicipioComDv)
 
         let municipio: {nome: string};

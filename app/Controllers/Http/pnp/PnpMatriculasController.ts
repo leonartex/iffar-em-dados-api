@@ -13,7 +13,7 @@ export default class PnpMatriculasController {
     //Pega as matrículas do IFFar como um todo (leia-se: não define município ou outro atributo como filtro no select, praticamente sem WHERE)
     public async getAll(onlyInfo = false): Promise<Array<PnpMatricula>>{
         let pnpMatriculas: Array<PnpMatricula>
-        //Se eu quiser retornar apenas as informações contidas sobre cursos no PNP de todos os cursos, eu agrupo as matrículas conforme o conjunto de atributos que diferenciam os cursos entre si
+        //Se eu quiser retornar apenas as informações contidas sobre cursos na PNP de todos os cursos, eu agrupo as matrículas conforme o conjunto de atributos que diferenciam os cursos entre si
         if(onlyInfo == true)
             pnpMatriculas = await PnpMatricula
                 .query()

@@ -14,28 +14,55 @@ import PnpMatriculasController from "./pnp/PnpMatriculasController";
 import PnpMatricula from "App/Models/PnpMatricula";
 import Aluno from "App/Models/iffar/Aluno";
 import FormasIngressoController from "./iffar/auxiliares/FormasIngressoController";
+import CursosController from "./iffar/CursosController";
+
+import util from 'util';
+import AlunosController from "./iffar/AlunosController";
 
 export default class CoursesController {
     public async getAll(){};
 
     public async getAllFromUnit(unitId: number){};
 
-    public async get(courseId: number){};
+    public async get(courseId: number){
+        let cursosC = new CursosController();
+        let course = await cursosC.get(courseId);
+
+        let courseDetailing = await this.courseDetailing(course);
+        console.log(util.inspect(courseDetailing));
+
+        let pnpMatriculasC = new PnpMatriculasController();
+        let enrollments = await pnpMatriculasC.getCourse(course);
+        let rateCards = await this.rateCards(enrollments);
+        console.log(util.inspect(rateCards));
+
+        let alunosC = new AlunosController();
+        let students = await alunosC.getStudentsFromCourse(course.id_curso, 0, 2020);
+        let entryMethods = await this.entryMethods(students);
+        console.log(util.inspect(entryMethods));
+
+        let slotReservationOptions = await this.slotReservationOptions(enrollments);
+        console.log(util.inspect(slotReservationOptions));
+
+        let studentsProfile = await this.studentsProfile(enrollments);
+        console.log(util.inspect(studentsProfile.racialDistribution, undefined, 4));
+    };
 
     private async courseDetailing(course: Curso){
-        let detailing: {
-                level,
-                degree,
-                modality,
-                city,
-                offerType,
-                knowledgeArea,
-                knowledgeAxis,
-                courseLoad,
-                minimumCourseLoad,
-                turn,
-                courseSlots
-            } = undefined;
+        class CourseDetailing {
+            level: string | null;
+            degree: string | null;
+            modality: string | null;
+            city: string | null;
+            offerType: string | null;
+            knowledgeArea: string | null;
+            knowledgeAxis: string | null;
+            courseLoad: string | null;
+            minimumCourseLoad: string | null;
+            turn: string | null;
+            courseSlots: string | null;
+        }
+        let detailing: CourseDetailing = new CourseDetailing();
 
         /**Definindo:
          * Nível do curso
@@ -101,7 +128,7 @@ export default class CoursesController {
         }
 
         // Área do conhecimento e Eixo de conhecimento (técnico)
-        if(types.isNumber(course.id_area_curso)){
+        if(!types.isNull(course.id_area_curso)){
             let areasCnpqC = new AreasCursoCnpqController();
             let area = await areasCnpqC.get(course.id_area_curso);
             detailing.knowledgeArea = area.nome;
@@ -109,7 +136,7 @@ export default class CoursesController {
             detailing.knowledgeArea = null;
         }
 
-        if(types.isNumber(course.id_eixo_conhecimento)){
+        if(!types.isNull(course.id_eixo_conhecimento)){
             let eixosC = new EixosConhecimentoController();
             let knowledgeAxis = await eixosC.get(course.id_eixo_conhecimento);
             detailing.knowledgeAxis = knowledgeAxis.nome;
@@ -117,7 +144,7 @@ export default class CoursesController {
             detailing.knowledgeAxis = null;
         }
     
-        //Informações extraídas dos dados do PNP
+        //Informações extraídas dos dados da PNP
         let pnpMatriculasC = new PnpMatriculasController();
         let pnpCourseInfo = await pnpMatriculasC.getCourse(course, true);
 
@@ -130,6 +157,8 @@ export default class CoursesController {
 
         // Vagas ofertadas
         detailing.courseSlots = pnpCourseInfo[0].vagasOfertadas;
+
+        return detailing;
     }
 
     private async rates(enrollments: Array<PnpMatricula>){
@@ -141,73 +170,69 @@ export default class CoursesController {
         });
     }
 
-    private async ratesCards(enrollments: Array<PnpMatricula>){
-        let cards: {
-            enrolledStudents,
-            incomingStudents,
+    private async rateCards(enrollments: Array<PnpMatricula>){
+        class RateCards{
+            enrolledStudents: number;
+            incomingStudents: number;
             concludingStudents: {
-                concluded,
-                integralized
-            },
-            dropoutStudents
-        };
+                concluded: number,
+                integralized: number
+            };
+            dropoutStudents: any
+        }
+        let cards = new RateCards();
 
         //Pego o total de alunos matriculados
-        let enrolledStudents = enrollments.length;
+        cards.enrolledStudents = enrollments.length;
 
         //Pego o total de alunos ingressantes
-        let incomingStudents = enrollments.reduce(function (total, enrollment){
+        cards.incomingStudents = enrollments.reduce(function (total, enrollment){
             //Pego a data e divido em três partes, para selecionar o ano
             let [day, month, year] = enrollment.dataDeInicioDoCiclo.split('/');            
-            //Verifico se o ano base do PNP é o mesmo que o ano do início da matrícula. Se for, adiciono mais 1 no total
-            return (enrollment.anoBase == year) ? total++ : total;
+            //Verifico se o ano base da PNP é o mesmo que o ano do início da matrícula. Se for, adiciono mais 1 no total
+            return (enrollment.anoBase == year) ? ++total : total;
         }, 0);
         
-        let concludingStudents = {
+        cards.concludingStudents = {
             //Pego o total de alunos que concluíram o curso
             concluded: enrollments.reduce(function(total, enrollment){
-                return enrollment.situacaoDeMatricula == 'Concluída' ? total++ : total;
+                return enrollment.situacaoDeMatricula == 'Concluída' ? ++total : total;
             }, 0),
             //Pego o total de alunos que estão com a matrícula do curso integralizada (falta apenas TCC, estágio, etc.)
             integralized: enrollments.reduce(function(total, enrollment){
-                return enrollment.situacaoDeMatricula == 'Integralizada' ? total++ : total;
+                return enrollment.situacaoDeMatricula == 'Integralizada' ? ++total : total;
             }, 0)
         };
 
         //Pego o total de estudantes evadidos
-        let dropoutStudents = {
+        cards.dropoutStudents = {
             //Matrículas desligadas
             discontinued: enrollments.reduce(function(total, enrollment){
-                return enrollment.situacaoDeMatricula == 'Desligada' ? total++ : total;
+                return enrollment.situacaoDeMatricula == 'Desligada' ? ++total : total;
             }, 0),
             //Matrículas canceladas
             cancelled: enrollments.reduce(function(total, enrollment){
-                return enrollment.situacaoDeMatricula == 'Cancelada' ? total++ : total;
+                return enrollment.situacaoDeMatricula == 'Cancelada' ? ++total : total;
             }, 0),
             //Matrículas abandonadas
             abandoned: enrollments.reduce(function(total, enrollment){
-                return enrollment.situacaoDeMatricula == 'Abandono' ? total++ : total;
+                return enrollment.situacaoDeMatricula == 'Abandono' ? ++total : total;
             }, 0),
             //Matrículas reprovadas (o aluno que está impossibilitado de continuar no curso e reprovou em alguma coisa)
             reproved: enrollments.reduce(function(total, enrollment){
-                return enrollment.situacaoDeMatricula == 'Reprovado' ? total++ : total;
+                return enrollment.situacaoDeMatricula == 'Reprovado' ? ++total : total;
             }, 0),
             //Estudantes que realizaram transferência externa
             externalTransfer: enrollments.reduce(function(total, enrollment){
-                return enrollment.situacaoDeMatricula == 'Transf. externa' ? total++ : total;
+                return enrollment.situacaoDeMatricula == 'Transf. externa' ? ++total : total;
             }, 0),
             //Estudantes que realizaram transferência interna
             internalTransfer: enrollments.reduce(function(total, enrollment){
-                return enrollment.situacaoDeMatricula == 'Transf. interna' ? total++ : total;
+                return enrollment.situacaoDeMatricula == 'Transf. interna' ? ++total : total;
             }, 0)
         };
 
-        return cards = {
-            enrolledStudents,
-            incomingStudents,
-            concludingStudents,
-            dropoutStudents
-        }
+        return cards;
     }
 
     private async entryMethods(students: Array<Aluno>){
@@ -242,13 +267,14 @@ export default class CoursesController {
             }
         });
 
+        return entryMethods;
     }
 
     private async slotReservationOptions(enrollments: Array<PnpMatricula>){
-        //Pego a primeira matrícula ingressante que aparecer (aparentemente, o PNP adiciona os dados sobre opções de reserva de vaga ofertadas conforme o ano de ingresso de determinada matrícula, assim, torna-se necessário recuperar uma matrícula ingressante)
-        //Já que eu executo as funções respectivamente a cada um dos anos bases disponíveis do PNP, retornar a primeira matrícula ingressante é o suficiente pois o conjunto de matrículas já estará filtrado desde antes, assim, conseguindo os dados de todos os anos
+        //Pego a primeira matrícula ingressante que aparecer (aparentemente, a PNP adiciona os dados sobre opções de reserva de vaga ofertadas conforme o ano de ingresso de determinada matrícula, assim, torna-se necessário recuperar uma matrícula ingressante)
+        //Já que eu executo as funções respectivamente a cada um dos anos bases disponíveis da PNP, retornar a primeira matrícula ingressante é o suficiente pois o conjunto de matrículas já estará filtrado desde antes, assim, conseguindo os dados de todos os anos
         let incomingEnrollment = enrollments.find(enrollment => {
-            //Comparo o ano de início da matrícula com o ano base do PNP para definir se é uma matrícula ingressante
+            //Comparo o ano de início da matrícula com o ano base da PNP para definir se é uma matrícula ingressante
             let [day, month, year] = enrollment.dataDeInicioDoCiclo.split('/');
             return enrollment.anoBase == year ? true : false
         })
@@ -263,7 +289,7 @@ export default class CoursesController {
         // }();
 
         //Com os dados da mátricula ingressante, apenas adiciono os valores sobre cada tipo de vaga ofertada
-        let slotReservationOptions= {
+        let slotReservationOptions = {
             regular: {
                 ac: incomingEnrollment?.vagasRegularesAc,
                 l1: incomingEnrollment?.vagasRegularesL1,
@@ -287,6 +313,87 @@ export default class CoursesController {
                 l14: incomingEnrollment?.vagasExtraordinariasL14
             }
         };
+
+        return slotReservationOptions;
+
+    }
+
+    //Semelhante aos painéis da PNP apresentados, os conjuntos de dados sobre o perfil dos estudantes serão um tanto relacionados entre si. No caso, a estrutura de dados seguirá de uma forma em que dados sobre renda familiar serão relacionados com dados sobre cor de pele/raça, assim como dados sobre distribuição por gênero possuirão ligação com os dados sobre faixa etária
+    //Por exemplo, cada valor de idade será interseccionado entre as alternativas de gênero contidas na PNP. Já as alternativas de cor de pele/raça, de forma semelhante, conterão a intersecção para cada tipo de renda per capita familiar. Isso é necessário para permitir maiores inferências no futuro, porém, sem tornar o conjunto de dados muito grande ou complexo de se trabalhar no lado do usuário.
+    //A título de comparação, se eu utilizasse os dados com um menor nível de granularidade, realizando as combinações de Cor, Renda, Idade e Gênero, haveriam 1496 registros diferentes para realizar a contagem considerando todas essas intersecções, enquanto que limitar a intersecção entre Cor e Renda (40 combinações) e Idade e Gênero (134 combinações) tornam os dados muito menores
+    private async studentsProfile(enrollments: Array<PnpMatricula>){
+        let ageGroupsDistribution: Array<{
+            age: string, //O valor da idade (ex.: 19 == 19 anos)
+            genderDistribution: Array<{
+                description: string, //O nome que será utilizado para apresentação.
+                total: number //O total de estudantes
+            }>
+        }> = [];
+
+        let racialDistribution: Array<{
+            description: string, //A descrição da cor ou raça
+            income: Array<{
+                description: string, //A descrição da faixa de renda familiar per capita
+                total: number
+            }>
+        }> = [];
+
+        enrollments.forEach(student => {
+            //Primeiro faço as verificações para registrar os dados sobre idade e distribuição de gênero
+            //Verifico se a idade não existe no vetor, para adicionar ela
+            if(types.isUndefined(ageGroupsDistribution.find(ageGroup => ageGroup.age == student.idade))){
+                //Se a idade não existe no vetor, a distribuição por gênero também não existe, então posso adicionar esses valor diretamente sem verificações
+                ageGroupsDistribution.push({
+                    age: student.idade,
+                    genderDistribution: [{
+                        description: student.sexo,
+                        total: 1
+                    }]
+                })
+            }else{
+                //Agora, se a idade já está cadastrada, preciso fazer as verificações para o gênero
+
+                //Pego o índice da idade no vetor
+                let ageIndex = ageGroupsDistribution.findIndex(ageGroup => ageGroup.age == student.idade);
+                
+                //Com o índice em mãos, faço a procura pelo gênero
+                if(types.isUndefined(ageGroupsDistribution[ageIndex].genderDistribution.find(gender => gender.description == student.sexo))){
+                    ageGroupsDistribution[ageIndex].genderDistribution.push({
+                        description: student.sexo,
+                        total: 1
+                    })
+                }else{
+                    //Se o gênero já estiver registrado, apenas adiciono +1 no total
+                    let genderIndex = ageGroupsDistribution[ageIndex].genderDistribution.findIndex(gender => gender.description == student.sexo);
+                    ageGroupsDistribution[ageIndex].genderDistribution[genderIndex].total++;
+                }
+            }
+
+            //Agora, as verificações para registro de dados sobre cor/raça e renda familiar
+            if(types.isUndefined(racialDistribution.find(racialGroup => racialGroup.description == student.corRaca))){
+                racialDistribution.push({
+                    description: student.corRaca,
+                    income: [{
+                        description: student.rendaFamiliar,
+                        total: 1
+                    }]
+                })
+            }else{
+                let raceGroupIndex = racialDistribution.findIndex(racialGroup => racialGroup.description == student.corRaca);
+
+                if(types.isUndefined(racialDistribution[raceGroupIndex].income.find(income => income.description == student.rendaFamiliar))){
+                    racialDistribution[raceGroupIndex].income.push({
+                        description: student.rendaFamiliar,
+                        total: 1
+                    })
+                }else{
+                    let incomeIndex = racialDistribution[raceGroupIndex].income.findIndex(income => income.description == student.rendaFamiliar);
+                    racialDistribution[raceGroupIndex].income[incomeIndex].total++;
+                }
+            }
+        });
+
+        return {ageGroupsDistribution, racialDistribution};
 
     }
 

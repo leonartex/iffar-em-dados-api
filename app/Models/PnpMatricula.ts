@@ -24,9 +24,9 @@ export default class PnpMatricula extends BaseModel {
   @column()
   public anoBase: string;
   @column()
-  public nomeMunicipio: string; //Precisei adicionar esse atributo por causa que o PNP do ano base de 2020 não traz o nome dos municípios, apenas os seus códigos com dígito verificadores do IBGE
+  public nomeMunicipio: string; //Precisei adicionar esse atributo por causa que a PNP do ano base de 2020 não traz o nome dos municípios, apenas os seus códigos com dígito verificadores do IBGE
 
-  //Atributos do PNP
+  //Atributos da PNP
   @column()
   public cargaHoraria: string;
 
