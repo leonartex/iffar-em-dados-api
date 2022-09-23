@@ -18,6 +18,14 @@ import CursosController from "./iffar/CursosController";
 
 import util from 'util';
 import AlunosController from "./iffar/AlunosController";
+import Projeto from "App/Models/iffar/Projeto";
+import TiposProjetosController from "./iffar/TiposProjetosController";
+import MembrosProjetosController from "./iffar/principais/MembrosProjetosController";
+import ProjetosController from "./iffar/ProjetosController";
+import GrupoPesquisa from "App/Models/iffar/principais/GrupoPesquisa";
+import GruposPesquisasController from "./iffar/principais/GruposPesquisasController";
+import MembrosGruposPesquisaController from "./iffar/principais/MembrosGruposPesquisaController";
+import LinhasGruposPesquisaController from "./iffar/principais/LinhasGruposPesquisaController";
 
 export default class CoursesController {
     public async getAll(){};
@@ -46,10 +54,26 @@ export default class CoursesController {
 
         let studentsProfile = await this.studentsProfile(enrollments);
         console.log(util.inspect(studentsProfile.racialDistribution, undefined, 4));
+
+        let unidadesC = new UnidadesOrganizacionaisController();
+        let unit = await unidadesC.get(41);
+        let projetosC = new ProjetosController();
+        //let projects = await projetosC.getFromUnit(unit);
+        let projects = await projetosC.getAll();
+        let projectsInfo = await this.projectsInfo(projects);
+
+        let gruposPesquisaC = new GruposPesquisasController();
+        let researchGroups = await gruposPesquisaC.getAll();
+        let researchGroupsInfo = await this.researchGroupsInfo(researchGroups);
     };
 
-    private async courseDetailing(course: Curso){
+    //####
+    //Funções utilizadas ao menos na página específica de curso
+    //####
+
+    private async courseDetailing(course: Curso, year?: number){
         class CourseDetailing {
+            apiId: number;
             level: string | null;
             degree: string | null;
             modality: string | null;
@@ -61,8 +85,11 @@ export default class CoursesController {
             minimumCourseLoad: string | null;
             turn: string | null;
             courseSlots: string | null;
+            apiName: string;
+            pnpName: string;
         }
         let detailing: CourseDetailing = new CourseDetailing();
+        detailing.apiId = course.id_curso;
 
         /**Definindo:
          * Nível do curso
@@ -157,6 +184,9 @@ export default class CoursesController {
 
         // Vagas ofertadas
         detailing.courseSlots = pnpCourseInfo[0].vagasOfertadas;
+
+        detailing.apiName = course.nome;
+        detailing.pnpName = pnpCourseInfo[0].nomeDeCurso;
 
         return detailing;
     }
@@ -318,10 +348,11 @@ export default class CoursesController {
 
     }
 
-    //Semelhante aos painéis da PNP apresentados, os conjuntos de dados sobre o perfil dos estudantes serão um tanto relacionados entre si. No caso, a estrutura de dados seguirá de uma forma em que dados sobre renda familiar serão relacionados com dados sobre cor de pele/raça, assim como dados sobre distribuição por gênero possuirão ligação com os dados sobre faixa etária
-    //Por exemplo, cada valor de idade será interseccionado entre as alternativas de gênero contidas na PNP. Já as alternativas de cor de pele/raça, de forma semelhante, conterão a intersecção para cada tipo de renda per capita familiar. Isso é necessário para permitir maiores inferências no futuro, porém, sem tornar o conjunto de dados muito grande ou complexo de se trabalhar no lado do usuário.
-    //A título de comparação, se eu utilizasse os dados com um menor nível de granularidade, realizando as combinações de Cor, Renda, Idade e Gênero, haveriam 1496 registros diferentes para realizar a contagem considerando todas essas intersecções, enquanto que limitar a intersecção entre Cor e Renda (40 combinações) e Idade e Gênero (134 combinações) tornam os dados muito menores
     private async studentsProfile(enrollments: Array<PnpMatricula>){
+        //Semelhante aos painéis da PNP apresentados, os conjuntos de dados sobre o perfil dos estudantes serão um tanto relacionados entre si. No caso, a estrutura de dados seguirá de uma forma em que dados sobre renda familiar serão relacionados com dados sobre cor de pele/raça, assim como dados sobre distribuição por gênero possuirão ligação com os dados sobre faixa etária
+        //Por exemplo, cada valor de idade será interseccionado entre as alternativas de gênero contidas na PNP. Já as alternativas de cor de pele/raça, de forma semelhante, conterão a intersecção para cada tipo de renda per capita familiar. Isso é necessário para permitir maiores inferências no futuro, porém, sem tornar o conjunto de dados muito grande ou complexo de se trabalhar no lado do usuário.
+        //A título de comparação, se eu utilizasse os dados com um menor nível de granularidade, realizando as combinações de Cor, Renda, Idade e Gênero, haveriam 1496 registros diferentes para realizar a contagem considerando todas essas intersecções, enquanto que limitar a intersecção entre Cor e Renda (40 combinações) e Idade e Gênero (134 combinações) tornam os dados muito menores
+
         let ageGroupsDistribution: Array<{
             age: string, //O valor da idade (ex.: 19 == 19 anos)
             genderDistribution: Array<{
@@ -369,7 +400,7 @@ export default class CoursesController {
                 }
             }
 
-            //Agora, as verificações para registro de dados sobre cor/raça e renda familiar
+            //Agora, as verificações para registro de dados sobre cor/raça e renda familiar. Segue a mesma lógica da verificação anterior
             if(types.isUndefined(racialDistribution.find(racialGroup => racialGroup.description == student.corRaca))){
                 racialDistribution.push({
                     description: student.corRaca,
@@ -395,6 +426,129 @@ export default class CoursesController {
 
         return {ageGroupsDistribution, racialDistribution};
 
+    }
+
+    //Retornar uma lista do total de projetos existentes por cada área do conhecimento
+    private async projectsInfo(projects: Array<Projeto>){
+        let knowledgeAreasProjects: Array<{
+            apiId: number,
+            description: string, //O nome da área do conhecimento
+            projects: Array<{ //A lista de tipos de projetos com os dados do número de projetos
+                apiId: number, //O id do tipo de projeto (economiza umas linhas de código)
+                type: string, //Tipo de projeto (ensino, pesquisa ou extensão)
+                members: Array<number>, //O total de membros envolvidos por projeto. P.S.: members.lenth indica a quantia de projetos existentes
+                total: number
+            }>
+        }> = [];
+
+        let areasCnpqC = new AreasCursoCnpqController();
+        let knowledgeAreas = await areasCnpqC.getAll();
+
+        let tiposProjetosC = new TiposProjetosController();
+        let projectTypes = await tiposProjetosC.getAll();
+
+        let membrosProjetosC = new MembrosProjetosController();
+        let projectsMembers = await membrosProjetosC.getAll();
+
+
+        projects.forEach(project => {
+            //A área do conhecimento em alguns projetos não são definidas, então verifico e crio um valor para indicar isso
+            let ka: any;
+            //Tenho que verificar se não é apenas uma string vazia também, por causa que tem projeto com o campo vazio, aí nunca dá para saber se é undefined, null ou uma string vazia ('')
+            if(types.isUndefined(project.id_area_conhecimento_cnpq) || types.isNull(project.id_area_conhecimento_cnpq) || string.isEmpty(project.id_area_conhecimento_cnpq+''))
+                ka = {id_area_conhecimento_cnpq: -1, nome: 'Área não definida'};
+            else
+                ka = knowledgeAreas.find(ka => ka.id_area_conhecimento_cnpq == project.id_area_conhecimento_cnpq);
+            
+            let projectType: any;
+            if(types.isNull(project.id_tipo_projeto) || types.isUndefined(project.id_tipo_projeto) || string.isEmpty(project.id_tipo_projeto+''))
+                projectType = {id_tipo_projeto: -1, descricao: 'Tipo não definido'}
+            else
+                projectType = projectTypes.find(pt => pt.id_tipo_projeto == project.id_tipo_projeto);
+
+            let projectMembers = projectsMembers.filter(projectMember => projectMember.id_projeto == project.id_projeto);
+
+            //Mesma lógica para os métodos anteriores. Verifico se existe no array a área do conhecimento do projeto atual, se não, adiciono. Se tiver, verifico os tipos de projetos existentes, aí adiciono se não tiver o tipo no vetor da área e aí adiciono à contagem +1
+            if(types.isUndefined(knowledgeAreasProjects.find(kap => kap.apiId == ka.id_area_conhecimento_cnpq))){                
+                knowledgeAreasProjects.push({
+                    apiId: ka.id_area_conhecimento_cnpq,
+                    description: ka.nome,
+                    projects:[{
+                        apiId: projectType.id_tipo_projeto,
+                        type: projectType.descricao,
+                        members: [projectMembers.length], //O comprimento do vetor indica a quantia de membros no projeto
+                        total: 1,
+                    }]
+                })
+            }else{
+                let kapIndex = knowledgeAreasProjects.findIndex(kap => kap.apiId == ka.id_area_conhecimento_cnpq);
+                if(types.isUndefined(knowledgeAreasProjects[kapIndex].projects.find(pt => pt.apiId == projectType?.id_tipo_projeto))){
+                    knowledgeAreasProjects[kapIndex].projects.push({
+                        apiId: projectType.id_tipo_projeto,
+                        type: projectType.descricao,
+                        members: [projectMembers.length],
+                        total: 1,
+                    })
+                }else{
+                    let projectTypeIndex = knowledgeAreasProjects[kapIndex].projects.findIndex(pt => pt.apiId == projectType?.id_tipo_projeto);
+                    knowledgeAreasProjects[kapIndex].projects[projectTypeIndex].members.push(projectMembers.length); //Adiciono o número de membros por projeto
+                    knowledgeAreasProjects[kapIndex].projects[projectTypeIndex].total++;
+                }
+            }
+        })
+        console.log(util.inspect(knowledgeAreasProjects, false, 4));
+        return knowledgeAreasProjects;
+    }
+
+    private async researchGroupsInfo(researchGroups: Array<GrupoPesquisa>){
+        let researchGroupsInfo: Array<{
+            apiId: number,
+            name: string, //O nome do grupo de pesquisa
+            knowledgeArea: {
+                apiId: number,
+                description: string
+            },
+            members: number, //O total de membros envolvidos no grupo
+            researchLines: number //O total de linhas de pesquisas relacionadas ao grupo
+        }> = [];
+
+        let areasCnpqC = new AreasCursoCnpqController();
+        let knowledgeAreas = await areasCnpqC.getAll();
+
+        //Informações do total de membros nos grupos
+        let gruposPesquisaC = new MembrosGruposPesquisaController();
+        let researchGroupsMembers = await gruposPesquisaC.getAll();
+
+        let linhasGruposPesquisaC = new LinhasGruposPesquisaController();
+        let researchLines = await linhasGruposPesquisaC.getAll();
+
+        researchGroups.forEach(researchGroup => {
+            //Informações da área do conhecimento do grupo
+            let ka: any;
+            if(types.isUndefined(researchGroup.id_area_conhecimento_cnpq) || types.isNull(researchGroup.id_area_conhecimento_cnpq) || string.isEmpty(researchGroup.id_area_conhecimento_cnpq+''))
+                    ka = {id_area_conhecimento_cnpq: -1, nome: 'Área não definida'};
+                else
+                    ka = knowledgeAreas.find(ka => ka.id_area_conhecimento_cnpq == researchGroup.id_area_conhecimento_cnpq);
+
+            //Filtrar os membros apenas do grupo de pesquisa
+            let reGroupMembers = researchGroupsMembers.filter(reGroupMembers => reGroupMembers.id_grupo_pesquisa == researchGroup.id_grupo_pesquisa);
+
+            //Informações do total de linhas de pesquisa no grupo
+            let reLines = researchLines.filter(reLine => reLine.id_grupo_pesquisa == researchGroup.id_grupo_pesquisa)
+
+            researchGroupsInfo.push({
+                apiId: researchGroup.id_grupo_pesquisa,
+                name: researchGroup.nome,
+                knowledgeArea: {
+                    apiId: ka.id_area_conhecimento_cnpq,
+                    description: ka.nome
+                },
+                members: reGroupMembers.length,
+                researchLines: reLines.length
+            });
+        })
+
+        return researchGroupsInfo;
     }
 
 }

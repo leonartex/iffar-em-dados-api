@@ -32,7 +32,7 @@ export default class Index {
     //Crio um singleton para se ter um dado "global" contendo o tempo do último request enviado para determinada API, neste caso, para a API do IFFar. Por ser singleton, cria-se uma única instância, permitindo acessar o mesmo dado em diferentes lugares
     this.app.container.singleton('LastRequest/Iffar', () => {
       let lastRequestIffar = new LastRequest();
-      lastRequestIffar.setInterval(50); //Defino o intervalo para a API dos dados abertos do IFFar
+      lastRequestIffar.setInterval(75); //Defino o intervalo para a API dos dados abertos do IFFar
 
       return lastRequestIffar;
     })
@@ -100,6 +100,7 @@ export default class Index {
         
         //Aguardo o tempo de espera
         return new Promise((resolve) => { //Envelopo a request dentro de uma Promise
+          console.log('Aguardando tempo de espera: '+actualWaitingTime+'ms');
           setTimeout( //Aguardo o tempo de espera para enviar a requisição
             () => resolve(config),
             actualWaitingTime
