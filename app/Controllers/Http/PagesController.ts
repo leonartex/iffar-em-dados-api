@@ -26,45 +26,121 @@ import GrupoPesquisa from "App/Models/iffar/principais/GrupoPesquisa";
 import GruposPesquisasController from "./iffar/principais/GruposPesquisasController";
 import MembrosGruposPesquisaController from "./iffar/principais/MembrosGruposPesquisaController";
 import LinhasGruposPesquisaController from "./iffar/principais/LinhasGruposPesquisaController";
+import ComponentesCurricularesController from "./iffar/principais/ComponentesCurricularesController";
 
-export default class CoursesController {
+export default class PagesController {
     public async getAll(){};
 
     public async getAllFromUnit(unitId: number){};
 
-    public async get(courseId: number){
+    public async getCourse(courseId: number){
+        //Pego os dados do curso que é requisitado
         let cursosC = new CursosController();
         let course = await cursosC.get(courseId);
+        //Pego as matrículas equivalente da PNP do curso sendo requisitado
+        let pnpMatriculasC = new PnpMatriculasController();
+        let enrollments = await pnpMatriculasC.getCourse(course);
+        //E pego os dados de alunos da API dos dados abertos do IFFar (em determinadas partes necessito de ambos os dados)
+        let alunosC = new AlunosController();
+        let students = await alunosC.getStudentsFromCourse(course.id_curso);
 
+        //Pego as informações sobre detalhamento. Algumas dessas informações até variam conforme os anos (por diferentes PPCs), mas os dados do IFFar não armazenam de forma temporal esses dados, então ele fica de fora do looping de anos
         let courseDetailing = await this.courseDetailing(course);
         console.log(util.inspect(courseDetailing));
 
-        let pnpMatriculasC = new PnpMatriculasController();
-        let enrollments = await pnpMatriculasC.getCourse(course);
-        let rateCards = await this.rateCards(enrollments);
-        console.log(util.inspect(rateCards));
+        //Crio um vetor contendo todos os anos existentes do curso nos dados da PNP. Também irei criar um com os anos disponíveis pelos dados da base Alunos, do IFFar  (https://stackoverflow.com/questions/15125920/how-to-get-distinct-values-from-an-array-of-objects-in-javascript)
+        //A partir disso começo a montar o array final que será retornado contendo os dados em cada ano
+        let infoPerYear: Array<any> = [];
 
-        let alunosC = new AlunosController();
-        let students = await alunosC.getStudentsFromCourse(course.id_curso, 0, 2020);
-        let entryMethods = await this.entryMethods(students);
-        console.log(util.inspect(entryMethods));
+        //Pego os anos que existem de dados da PNP
+        let pnpYears = [...new Set(enrollments.map(enrollment => enrollment.anoBase))];
 
-        let slotReservationOptions = await this.slotReservationOptions(enrollments);
-        console.log(util.inspect(slotReservationOptions));
+        for(let i = 0; i < pnpYears.length; i++){
+            //Filtro para se ter apenas as matrículas e dados sobre estudantes daquele específico ano. Contudo, existe uma limitação nos dados do IFFar: apenas consigo extrair a informação do ano de ingresso dos alunos, então as informações que utilizar esses dados apenas consegue representar a realidade dos estudantes que ingressaram aquele ano, diferentemente do PNP, que representa a realidade integral dos cursos.
+            let yearEnrollments = enrollments.filter(enrollment => enrollment.anoBase == pnpYears[i]);
+            let yearStudents = students.filter(student => student.ano_ingresso.toString() == pnpYears[i]);
 
-        let studentsProfile = await this.studentsProfile(enrollments);
-        console.log(util.inspect(studentsProfile.racialDistribution, undefined, 4));
+            let rateCards = await this.rateCards(yearEnrollments, yearStudents);
+            //console.log(util.inspect(rateCards));
 
-        let unidadesC = new UnidadesOrganizacionaisController();
-        let unit = await unidadesC.get(41);
-        let projetosC = new ProjetosController();
-        //let projects = await projetosC.getFromUnit(unit);
-        let projects = await projetosC.getAll();
-        let projectsInfo = await this.projectsInfo(projects);
+            let entryMethods = await this.entryMethods(yearStudents);
+            //console.log(util.inspect(entryMethods));
 
-        let gruposPesquisaC = new GruposPesquisasController();
-        let researchGroups = await gruposPesquisaC.getAll();
-        let researchGroupsInfo = await this.researchGroupsInfo(researchGroups);
+            let slotReservationOptions = await this.slotReservationOptions(yearEnrollments);
+            //console.log(util.inspect(slotReservationOptions));
+
+            let studentsProfile = await this.studentsProfile(yearEnrollments);
+            //console.log(util.inspect(studentsProfile.racialDistribution, undefined, 4));
+
+            infoPerYear.push({
+                year: pnpYears[i],
+                rateCards,
+                entryMethods,
+                slotReservationOptions,
+                studentsProfile
+            });
+        }
+
+        //Agora que realizei os processos que utilizam os dados da PNP, realizo o processo apenas para preencher as informações possíveis nos anos não cobertos pela PNP, utilizando os dados da base Alunos do IFFar
+        //Porém, existem limitações críticas por utilizar apenas os dados da base Alunos. Por exemplo: se um curso ainda for ativo mas não estiver mais ofertando matrículas, e ainda não tiver sido publicado os dados da PNP que representem esse ano, não haverão informações para esse curso. Limitações nos dados que podem impedir uma correta oferta de informações
+        
+        //Primeiro crio o array apenas com anos em que houveram ingresso de estudantes, já que é a única forma de conseguir alguma informação de maneira temporal
+        let apiYears = [...new Set(students.map(student => student.ano_ingresso.toString()))]
+        //Removo os anos já cobertos no processamento dos dados da PNP
+        apiYears = apiYears.filter(apiYear => types.isUndefined(pnpYears.find(pnpYear => pnpYear == apiYear)));
+
+        for(let i = 0; i < apiYears.length; i++){
+            let yearStudents = students.filter(student => student.ano_ingresso.toString() == apiYears[i]);
+
+            //Preencho com null as informações que dependem dos dados da PNP
+            let rateCards = {
+                enrolledStudents: null,
+    
+                apiIncomingStudents: yearStudents.length,
+                pnpIncomingStudents: null,
+    
+                concludingStudents: {
+                    concluded: null,
+                    integralized: null
+                },
+                dropoutStudents: null
+            }
+
+            let entryMethods = await this.entryMethods(yearStudents);
+            let slotReservationOptions = null;
+            let studentsProfile = null;
+
+            infoPerYear.push({
+                year: apiYears[i],
+                rateCards,
+                entryMethods,
+                slotReservationOptions,
+                studentsProfile
+            });
+        }
+
+        console.log(util.inspect(infoPerYear));
+
+        //Pego a lista de disciplinas, já que os dados que o IFFar oferece não têm tanta utilidade (faltam os dados de em qual semestre são oferecidas para eu poder usar como informação), pego apenas a lista de nomes para a estilização gráfica no início da página
+        let courseComponents = await this.courseComponents(course);
+        
+        console.log('Enviando resposta');
+        return {
+            courseDetailing,
+            infoPerYear,
+            courseComponents
+        };
+
+        // let unidadesC = new UnidadesOrganizacionaisController();
+        // let unit = await unidadesC.get(41);
+        // let projetosC = new ProjetosController();
+        // //let projects = await projetosC.getFromUnit(unit);
+        // let projects = await projetosC.getAll();
+        // let projectsInfo = await this.projectsInfo(projects);
+
+        // let gruposPesquisaC = new GruposPesquisasController();
+        // let researchGroups = await gruposPesquisaC.getAll();
+        // let researchGroupsInfo = await this.researchGroupsInfo(researchGroups);
     };
 
     //####
@@ -86,9 +162,9 @@ export default class CoursesController {
             turn: string | null;
             courseSlots: string | null;
             apiName: string;
-            pnpName: string;
+            pnpName: string | null;
         }
-        let detailing: CourseDetailing = new CourseDetailing();
+        let detailing = new CourseDetailing();
         detailing.apiId = course.id_curso;
 
         /**Definindo:
@@ -191,19 +267,13 @@ export default class CoursesController {
         return detailing;
     }
 
-    private async rates(enrollments: Array<PnpMatricula>){
-        //Pego todos os anos base existentes no array de matrículas (https://stackoverflow.com/questions/15125920/how-to-get-distinct-values-from-an-array-of-objects-in-javascript)
-        let pnpYears = [...new Set(enrollments.map(enrollment => enrollment.anoBase))];
-
-        pnpYears.forEach(year => {
-            
-        });
-    }
-
-    private async rateCards(enrollments: Array<PnpMatricula>){
+    private async rateCards(enrollments: Array<PnpMatricula>, students: Array<Aluno>){
         class RateCards{
             enrolledStudents: number;
-            incomingStudents: number;
+
+            apiIncomingStudents: number;
+            pnpIncomingStudents: number;
+
             concludingStudents: {
                 concluded: number,
                 integralized: number
@@ -215,8 +285,10 @@ export default class CoursesController {
         //Pego o total de alunos matriculados
         cards.enrolledStudents = enrollments.length;
 
-        //Pego o total de alunos ingressantes
-        cards.incomingStudents = enrollments.reduce(function (total, enrollment){
+        //Pego o total de alunos ingressantes informado pelos dados da API do IFFar
+        cards.apiIncomingStudents = students.length;
+        //Pego o total de alunos ingressantes informado pelos dados da PNP
+        cards.pnpIncomingStudents = enrollments.reduce(function (total, enrollment){
             //Pego a data e divido em três partes, para selecionar o ano
             let [day, month, year] = enrollment.dataDeInicioDoCiclo.split('/');            
             //Verifico se o ano base da PNP é o mesmo que o ano do início da matrícula. Se for, adiciono mais 1 no total
@@ -427,6 +499,96 @@ export default class CoursesController {
         return {ageGroupsDistribution, racialDistribution};
 
     }
+
+    private async courseComponents(course: Curso){
+        //Pego a lista de disciplinas do curso
+        let componentesC = new ComponentesCurricularesController();
+        let curricularComponents = await componentesC.getCourse(course.id_curso);
+
+        //Crio a lista com apenas os nomes das disciplinas, utilizando o portugueseTitleCase para deixar normal os títulos
+        return curricularComponents.map(component => this.portugueseTitleCase(component.nome));
+    }
+
+    //Função auxiliar para transformar strings em title case utilizando algumas normas para o português (ex.: não deixando com inicial maíuscula exceções como: e, a, de, da, do. E deixar algarismos romanos em maíusculo)
+    //Limitação: detectar siglas e coisas do tipo
+    private portugueseTitleCase(str: string): string{
+        //Substituto múltiplos espaços e outros caracteres do tipo por um espaço apenas
+        //RegEx: string = string.replace(/\s\s+/g, ' ')
+        //Fonte: https://stackoverflow.com/questions/1981349/regex-to-replace-multiple-spaces-with-a-single-space
+        str = str.replace(/\s\s+/g, ' ');
+        
+        //Deixo tudo em minúsculo e separo em um vetor de palavras usando o espaço
+        let words = str.toLocaleLowerCase('pt-BR').split(' ');
+
+        /**Lista de exceções:
+         * a; as;
+         * 
+         * à; às;
+         * 
+         * ao; aos;
+         * 
+         * o; os;
+         * 
+         * e;
+         * com;
+         * 
+         * de;
+         * da; das;
+         * do; dos;
+         * 
+         * em;
+         * ou;
+         * 
+         * na; nas;
+         * no; nos
+         * 
+         * por; para;
+         * 
+         * pra; pras;
+         * pro; pros
+         * 
+         * pela; pelas;
+         * pelo; pelos;
+         * 
+         * um; uma;
+         * 
+         * que;
+         * 
+         * algarismo romano
+         */
+
+        //Vetor com todas as exceções de palavras
+        let exceptions = ['a','as','à','às','ao','aos','o','os','e', 'com','de','da','das','do','dos','em','ou','na','nas','no','nos','por','para','pra','pras','pro','pros','pela','pelas','pelo','pelos','um','uma','que'];
+        //List de algarismos romanos (para o caso de nome de disciplinas e maior parte dos casos, acho que até o 10 é o suficiente)
+        let numerals = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'];
+
+        //Agora percorro todas as palavras para deixar a inicial em maiúsculo, porém, verificando as exceções, dando o devido tratamento
+        for(let i = 0; i < words.length; i++){
+            //Uso true para sempre inicializar o switch por irei verificar mais de uma condição para as situações no switch
+            switch(true){
+                //Verifico se não é uma das exceções
+                //i > 0: porque se for no início do título deve ficar com inicial em mauísculo
+                case (!types.isUndefined(exceptions.find(exception => exception == words[i])) && i > 0):
+                    break; //Não faz nada com a string, já que deve continuar em minúsculo
+                //Verifico se não é um algarismo romano
+                //Para o caso de algarismos romanos, deixo em maiúsculo tudo
+                case !types.isUndefined(numerals.find(numeral => numeral == words[i])):
+                    words[i] = words[i].toUpperCase();
+                    break;
+                //Se não for nenhuma das exceções, deixa a inicial maiúscula
+                default:
+                    words[i] = words[i].charAt(0).toLocaleUpperCase('pt-BR') + words[i].slice(1);
+            }
+        }
+        
+        //Junta de volta para uma string só e retorna ela
+        return words.join(' ');
+    }
+    
+
+    //####
+    //Funções utilizadas na página inicial
+    //####
 
     //Retornar uma lista do total de projetos existentes por cada área do conhecimento
     private async projectsInfo(projects: Array<Projeto>){

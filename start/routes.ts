@@ -28,6 +28,7 @@ import LocationsController from 'App/Controllers/Http/LocationsController';
 import Unit from 'App/Models/Unit';
 import UnidadesOrganizacionaisController from 'App/Controllers/Http/iffar/UnidadesOrganizacionaisController';
 import UnitsController from 'App/Controllers/Http/UnitsController';
+import PagesController from 'App/Controllers/Http/PagesController';
 
 Route.get('/api/location', async () => {
   let unit = new Unit();
@@ -49,21 +50,9 @@ Route.get('/api/unidadesList', async () => {
   return {data: units};
 });
 
-Route.get('/api/curso', async () => {
-  const fs = require('fs');
-  const {parse} = require('csv-parse');
+Route.get('/api/course/:id', async ({params}) => {
+  let coursesC = new PagesController();
+  let courseInfo = await coursesC.getCourse(params.id);
 
-  console.log("###############################\n\n")
-  // fs.createReadStream('./tmp/pnp/test.csv')
-  //     .pipe(parse({ delimiter: ';', columns: true}))
-  //     .on('data', function(row){
-  //       console.log("###############################\n\n")
-  //       for(let property in row){
-  //           //Normalizo o nome da propriedade, para remover acentuação sem perder os caracteres
-  //           let propertyNormalized = property.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  //           let text = `table.string('${string.snakeCase(propertyNormalized)}')`;
-  //           console.log(text);
-  //       }
-  //     })
-
-})
+  return courseInfo;
+}).where('id', Route.matchers.number())

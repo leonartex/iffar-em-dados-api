@@ -12,13 +12,13 @@ import AxiosIffar from '@ioc:Axios/Iffar';
 import LastRequestIffar from '@ioc:LastRequest/Iffar';
 
 import Redis from '@ioc:Adonis/Addons/Redis';
-import CoursesController from 'App/Controllers/Http/CoursesController';
+import PagesController from 'App/Controllers/Http/PagesController';
 
 a();
 
 async function a() {
-    let coursesC = new CoursesController();
-    coursesC.get(66658);
+    // let coursesC = new CoursesController();
+    // coursesC.get(66658);
 
     // console.log('LastRequest: '+LastRequestIffar.lastRequestTime);
     // LastRequestIffar.updateTime(Date.now());
