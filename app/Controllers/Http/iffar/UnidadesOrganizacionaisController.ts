@@ -7,9 +7,10 @@ import util from "util";
 
 import UnidadeOrganizacional from "App/Models/iffar/UnidadeOrganizacional";
 import MunicipiosController from "./MunicipiosController";
+import Curso from 'App/Models/iffar/Curso';
 
 export default class UnidadesOrganizacionaisController {
-    public async listEducationalUnits(): Promise<Array<UnidadeOrganizacional>>{
+    public async getEducationalUnits(): Promise<Array<UnidadeOrganizacional>>{
         // Campus e campus avançado
         // unidade_responsavel=672     INSTITUTO FEDERAL FARROUPILHA
         let unitsCampus = await AxiosIffar
@@ -29,13 +30,14 @@ export default class UnidadesOrganizacionaisController {
             return patternCampus.test(unit.nome.toLowerCase());
         });
 
+        //Campi avançados sempre estarão contido na lista de campi, daí é só filtrar essa lista de campi para se ter a lista de campi avançados
         let advancedCampi: Array<UnidadeOrganizacional>;
         let patternAdvanced = /campus avan[cç]ado/u;
         advancedCampi = campi.filter(function(unit){
             return patternAdvanced.test(unit.nome.toLowerCase());
         });
         
-        //A lista de campi regulares é apenas a lista de campi com os campi avançados filtrados
+        //A lista de campi regulares é apenas a lista de campi com os campi avançados removidos
         let regularCampi: Array<UnidadeOrganizacional>;
         regularCampi = campi.filter(function(unit){
             for(let i = 0; i < advancedCampi.length; i++){
@@ -46,7 +48,7 @@ export default class UnidadesOrganizacionaisController {
             return true;
         });
 
-        //Monto o array final com todas as unidades, adicionando os seus tipos
+        //Monto o array final com todas as unidades, adicionando os seus específicos tipos
         let units: Array<UnidadeOrganizacional> = [];
         regularCampi.forEach(unit => arrayUnits(unit, 'campus'));
         advancedCampi.forEach(unit => arrayUnits(unit, 'advanced-campus'));
@@ -74,6 +76,15 @@ export default class UnidadesOrganizacionaisController {
             .catch(error => {
                 console.error(error);
             });
+
+        return unit;
+    }
+
+    public async getUnitFromCourse(course: Curso): Promise<UnidadeOrganizacional>{
+        let unit: UnidadeOrganizacional = await this.get(course.id_unidade)
+        
+        //Já retorno com o nome do município já que, quando eu uso este método, minha intenção é pegar a cidade
+        unit.city = await new MunicipiosController().get(unit.id_municipio);
 
         return unit;
     }

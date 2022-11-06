@@ -18,7 +18,7 @@ export default class UnitsController {
     
     // Retorna uma lista de unidades organizacionais não tratadas
     public async list(): Promise<Array<Unit>> {
-        let units = await new UnidadesOrganizacionaisController().listEducationalUnits();
+        let units = await new UnidadesOrganizacionaisController().getEducationalUnits();
 
         let builtUnits: Array<Unit> = [];
 

@@ -50,9 +50,23 @@ Route.get('/api/unidadesList', async () => {
   return {data: units};
 });
 
+Route.get('/api/iffar', async () => {
+  let pagesC = new PagesController();
+  let iffarInfo = await pagesC.getAll();
+
+  return iffarInfo;
+})
+
+Route.get('/api/unit/:city', async ({params}) => {
+  let pagesC = new PagesController();
+  let unitInfo = await pagesC.getUnit(params.city);
+
+  return unitInfo;
+})
+
 Route.get('/api/course/:id', async ({params}) => {
-  let coursesC = new PagesController();
-  let courseInfo = await coursesC.getCourse(params.id);
+  let pagesC = new PagesController();
+  let courseInfo = await pagesC.getCourse(params.id);
 
   return courseInfo;
 }).where('id', Route.matchers.number())

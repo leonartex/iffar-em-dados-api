@@ -2,6 +2,7 @@
 import Curso from 'App/Models/iffar/Curso';
 import UnidadeOrganizacional from 'App/Models/iffar/UnidadeOrganizacional';
 import PnpMatricula from 'App/Models/PnpMatricula';
+import StringService from 'App/Services/stringService';
 import util from 'util';
 import AlunosController from '../iffar/AlunosController';
 
@@ -150,7 +151,9 @@ export default class PnpMatriculasController {
         return pnpMatriculas;
     }
 
-    private getPnpModality(course: Curso): string{
+    //MÉTODOS AUXILIARES DAQUI PRA BAIXO
+
+    public getPnpModality(course: Curso): string{
         //Verifico o id_modalidade_educacao dos dados do IFFar para definir a modalidadeDeEnsino da PNP:
         /**
          * id_modalidade_educacao -	descricao:
@@ -171,7 +174,7 @@ export default class PnpMatriculasController {
         return modalidadeDeEnsino;
     }
 
-    private getPnpTypes(course: Curso): {tipoDeCurso: string, tipoDeOferta: string}{
+    public getPnpTypes(course: Curso): {tipoDeCurso: string, tipoDeOferta: string}{
         /**
          * Nível de Ensino do Curso:
          * M - Integrado: anterior a 2018;
@@ -236,23 +239,27 @@ export default class PnpMatriculasController {
                         tipoDeOferta = 'Não se aplica';
                         break;
                     default: //TENHO QUE DEFINIR O DEFAULT
+                        tipoDeCurso = 'Não definido';
+                        tipoDeOferta = 'Não definido';
                 }
                 break;
             default: //TENHO QUE DEFINIR O DEFAULT
+                tipoDeCurso = 'Não definido';
+                tipoDeOferta = 'Não definido';
         }
 
         return {tipoDeCurso, tipoDeOferta};
     }
     
     //Função com o uso exclusivo de tratar e localizar o respectivo nome do curso buscado na PNP. Essencial para poder criar a relação entre os dados abertos do IFFar e os dados da PNP
-    private getPnpCourseName(course: Curso, pnpCourses: Array<PnpMatricula>): string{
+    public getPnpCourseName(course: Curso, pnpCourses: Array<PnpMatricula>): string{
         let pnpCoursesName: Array<string> = [];
         for(let i = 0; i < pnpCourses.length; i++){
             //Normalizo tanto o nome do curso dos dados do IFFar quanto os da PNP para remover caracteres especiais que afetem a comparação pela RegEx
-            let normalizedName = this.normalizeString(pnpCourses[i].nomeDeCurso)
+            let normalizedName = StringService.normalizeString(pnpCourses[i].nomeDeCurso)
             let regex = new RegExp(normalizedName.toLowerCase(), 'u'); //
             console.log(regex)
-            if(regex.test(this.normalizeString(course.nome).toLowerCase()))
+            if(regex.test(StringService.normalizeString(course.nome).toLowerCase()))
                 pnpCoursesName.push(pnpCourses[i].nomeDeCurso)
         }
 
@@ -267,8 +274,6 @@ export default class PnpMatriculasController {
         }
     }
 
-    private normalizeString(string: string): string{
-        return string.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    }
+    
 
 }
