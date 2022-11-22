@@ -179,6 +179,8 @@ export default class PagesController {
         if (types.isUndefined(theUnit)) {
 
         } else {
+            let units = await this.mountUnits([theUnit], true);
+
             //Pego todos os cursos da unidade
             let cursosC = new CursosController();
             let apiCourses = await cursosC.getAllFromUnit(theUnit);
@@ -276,6 +278,7 @@ export default class PagesController {
             }
 
             return {
+                "units": units,
                 "infoPerYear": infoPerYear
             };
 
@@ -298,6 +301,19 @@ export default class PagesController {
         //Pego as informações sobre detalhamento. Algumas dessas informações até variam conforme os anos (por diferentes PPCs), mas os dados do IFFar não armazenam de forma temporal esses dados, então ele fica de fora do looping de anos
         let courseDetailing = await this.courseDetailing(course);
         console.log(util.inspect(courseDetailing));
+
+        let levelOrDegree: string = '00000000000000000000000000000';
+
+        if(courseDetailing.level == 'Técnico')
+            levelOrDegree = StringService.portugueseTitleCase(courseDetailing.level);
+        else
+        levelOrDegree = StringService.portugueseTitleCase(courseDetailing.degree!);
+
+        //Filtro o nome da API
+        //Pego o nível do curso + "em" para remover e ter só o nome do
+        let regex = new RegExp(`.*${levelOrDegree}(.*?) em `)
+        let apiNameTitleCase = StringService.portugueseTitleCase(courseDetailing.apiName);
+        courseDetailing.apiNameFiltered = apiNameTitleCase.replace(regex, '');
 
         //Crio um vetor contendo todos os anos existentes do curso nos dados da PNP. Também irei criar um com os anos disponíveis pelos dados da base Alunos, do IFFar  (https://stackoverflow.com/questions/15125920/how-to-get-distinct-values-from-an-array-of-objects-in-javascript)
         //A partir disso começo a montar o array final que será retornado contendo os dados em cada ano
@@ -322,9 +338,11 @@ export default class PagesController {
 
             infoPerYear.push({
                 year: pnpYears[i],
-                rateCards,
-                entryMethods,
-                slotReservationOptions,
+                entryAndProgressInfo: {
+                    rateCards,
+                    entryMethods,
+                    slotReservationOptions,
+                },
                 studentsProfile
             });
         }
@@ -360,9 +378,11 @@ export default class PagesController {
 
             infoPerYear.push({
                 year: apiYears[i],
-                rateCards,
-                entryMethods,
-                slotReservationOptions,
+                entryAndProgressInfo: {
+                    rateCards,
+                    entryMethods,
+                    slotReservationOptions,
+                },
                 studentsProfile
             });
         }
@@ -464,6 +484,7 @@ export default class PagesController {
             turn: string | null;
             courseSlots: string | null;
             apiName: string;
+            apiNameFiltered: string;
             pnpName: string | null;
         }
         let detailing = new CourseDetailing();
