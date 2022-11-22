@@ -266,7 +266,9 @@ export default class PnpMatriculasController {
         //Se tiver só um curso que retornou como positivo pela RegEx, retorno ele
         if(pnpCoursesName.length == 1)
             return pnpCoursesName[0];
-        else{
+        else if(pnpCoursesName.length == 0){
+            return 'null';
+        }else{
             //Caso encontre mais de um nome de curso válido pela RegEx, reduzo o array para retornar o curso que tiver o nome mais comprido. O que for mais extenso é o correto
             return pnpCoursesName.reduce(function(a, b){
                 return a.length >= b.length ? a : b;

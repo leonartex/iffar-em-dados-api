@@ -8,6 +8,7 @@ import util from "util";
 import UnidadeOrganizacional from "App/Models/iffar/UnidadeOrganizacional";
 import MunicipiosController from "./MunicipiosController";
 import Curso from 'App/Models/iffar/Curso';
+import LocationsController from '../LocationsController';
 
 export default class UnidadesOrganizacionaisController {
     public async getEducationalUnits(): Promise<Array<UnidadeOrganizacional>>{
@@ -59,8 +60,9 @@ export default class UnidadesOrganizacionaisController {
             units.push(unit);
         }
 
-        for(let i = 0; i < units.length; i++)
+        for(let i = 0; i < units.length; i++){
             units[i].city = await new MunicipiosController().get(units[i].id_municipio);
+        }
 
         return units;
     }

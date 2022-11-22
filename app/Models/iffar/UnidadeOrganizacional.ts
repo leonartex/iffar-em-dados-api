@@ -30,5 +30,5 @@ export default class UnidadeOrganizacional {
   //Atributos adicionais, para poder indicar o tipo de unidade (campus, campus avançado, etc.) e adicionar os dados da cidade no mesmo elemento
   public type: string;
   public city: Municipio;
-
+  public location?: any;
 }

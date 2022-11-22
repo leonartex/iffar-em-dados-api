@@ -70,3 +70,10 @@ Route.get('/api/course/:id', async ({params}) => {
 
   return courseInfo;
 }).where('id', Route.matchers.number())
+
+Route.get('/api/teste', async () => {
+  let pagesC = new PagesController();
+  let units = await pagesC.teste();
+
+  return units;
+})

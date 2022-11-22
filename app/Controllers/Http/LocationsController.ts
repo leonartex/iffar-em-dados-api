@@ -4,6 +4,7 @@ import { DateTime } from 'luxon';
 
 import util from 'util';
 import axios from 'axios';
+import turf from '@turf/turf';
 
 import { types, base64 } from '@ioc:Adonis/Core/Helpers';
 
@@ -18,7 +19,8 @@ export default class LocationsController {
         let thisLocation: Location | null;
         
         // Se enviada a requisição de um estado (para poder desenhar o mapa), utiliza-se um objeto Unit com todos os dados nulos, exceto pelos dados do estado, para pegar a requisição
-        if(types.isNull(unit.city.cityId)){
+        console.log(util.inspect(unit))
+        if(types.isUndefined(unit.city)){
             thisLocation = await Location
                 .query()
                 .where('apiId', unit.state.stateId)
@@ -37,7 +39,7 @@ export default class LocationsController {
             
             let url = 'https://nominatim.openstreetmap.org/search?'; //A string que será montada para enviar a requisição para a API Nominatim
 
-            if(types.isNull(unit.city.cityId)){
+            if(types.isUndefined(unit.city)){
                 location.apiId = unit.state.stateId;
                 location.name = unit.state.stateName;
                 location.locationType = 'state';
@@ -110,5 +112,27 @@ export default class LocationsController {
                 //Preciso pensar em uma forma de garantir que uma requisição não fique eternamente na fila por sempre vir uma outra requisição antes de passar o intervalo desta
             }
         }
+    }
+
+    public locationToUnit(request: Location['request']): {coordinates: any, geojson: any}{
+        let req: any = JSON.parse(request);
+        console.log(util.inspect(req)+'\n\n');
+
+        //Pego os dados que realmente irei utilizar
+        let coordinates: any = {
+            lat: req[0].lat,
+            lon: req[0].lon
+        };
+        let geojson = {
+            "type": "Feature",
+            "properties": {},
+            "geometry": req[0].geojson
+        }
+        
+        let location = {
+            coordinates: coordinates,
+            geojson: geojson
+        }
+        return location;
     }
 }

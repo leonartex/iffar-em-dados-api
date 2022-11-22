@@ -28,7 +28,7 @@ export default class Unit {
   }
   
   //Os dados geográficos da cidade da unidade, necessários para a utilização de gráfico
-  public location: {
+  public location?: {
     coordinates: Object,
     geojson: Object
   }

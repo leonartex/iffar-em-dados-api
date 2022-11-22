@@ -31,9 +31,35 @@ import StringService from "App/Services/stringService";
 import EixoConhecimento from "App/Models/iffar/EixoConhecimento";
 import AreaCursoCnpq from "App/Models/iffar/AreaCursoCnpq";
 import UnidadesFederativasController from "./iffar/UnidadesFederativasController";
+import Redis from "@ioc:Adonis/Addons/Redis";
+import UnidadeOrganizacional from "App/Models/iffar/UnidadeOrganizacional";
+import Unit from "App/Models/Unit";
+import LocationsController from "./LocationsController";
 
 export default class PagesController {
+    public async teste() {
+        let unitsC = new UnidadesOrganizacionaisController();
+        //Pego a lista de todas as unidades organizacionais para poder filtrar e localizar a unidade de ensino (campus ou campus avançado) que representa o parâmetro unitCity
+        let educationalUnits = await unitsC.getEducationalUnits();
+
+        let units = await this.mountUnits(educationalUnits, true);
+
+        let map = await this.getMap();
+        return map;
+    }
+
     public async getAll() {
+        let responseCache = await Redis.get('iffar-em-dados:iffar');
+        if(responseCache){
+            return responseCache;
+        }
+
+        let unitsC = new UnidadesOrganizacionaisController();
+        let educationalUnits = await unitsC.getEducationalUnits();
+
+        let units = await this.mountUnits(educationalUnits, true);
+        let map = await this.getMap();
+
         let cursosC = new CursosController();
         let apiCourses = await cursosC.getAll();
 
@@ -127,9 +153,18 @@ export default class PagesController {
             })
         }
 
-        return {
+        let response = {
+            "map": map,
+            "units": units,
             "infoPerYear": infoPerYear
-        };
+        }
+
+        let keyName = 'iffar-em-dados:iffar';
+        let baseTime = 120 * 60;
+        await Redis.set(keyName, JSON.stringify(response))
+        await Redis.expire(keyName, baseTime)
+
+        return response;
     };
 
     public async getUnit(unitCity: string) {
@@ -355,6 +390,60 @@ export default class PagesController {
         // let researchGroups = await gruposPesquisaC.getAll();
         // let researchGroupsInfo = await this.researchGroupsInfo(researchGroups);
     };
+
+    //####
+    //Funções utilizadas em todas
+    //####
+    //Função pra transformar uma unidade em Unit
+    private async unidadeOrganizacionalToUnit(unidade: UnidadeOrganizacional, getLocation = false): Promise<Unit>{
+        let unit = new Unit();
+        unit.apiId = unidade.id_unidade;
+        unit.name = unidade.nome;
+        unit.type = unidade.type;
+        
+        unit.city = {
+            cityId: unidade.city.id_municipio,
+            cityName: unidade.city.nome
+        };
+        
+        unit.state = {
+            stateId: unidade.city.state.id_unidade_federativa,
+            stateName: unidade.city.state.descricao,
+            stateInitials: unidade.city.state.sigla
+        };
+
+        if(getLocation){
+            let locationC = new LocationsController();
+            let location = await locationC.get(unit);
+            unit.location = locationC.locationToUnit(location.request);
+        }
+
+        return unit;
+    }
+
+    //Função para pegar todas as unidades para Unit
+    private async mountUnits(unidades: Array<UnidadeOrganizacional>, getLocation = false){
+        let units: Array<Unit> = [];
+
+        for(let unidade of unidades){
+            let unit = await this.unidadeOrganizacionalToUnit(unidade, getLocation)
+            units.push(unit);
+        }
+
+        return units;
+    }
+    private async getMap(){
+        let unit = new Unit();
+        unit.state = {
+            stateId: 43,
+            stateName: 'Rio Grande do Sul',
+            stateInitials: 'RS'
+        }
+        let locationC = new LocationsController();
+        let location = await locationC.get(unit);
+
+        return locationC.locationToUnit(location.request);
+    }
 
     //####
     //Funções utilizadas ao menos na página específica de curso
@@ -637,6 +726,8 @@ export default class PagesController {
         //Semelhante aos painéis da PNP apresentados, os conjuntos de dados sobre o perfil dos estudantes serão um tanto relacionados entre si. No caso, a estrutura de dados seguirá de uma forma em que dados sobre renda familiar serão relacionados com dados sobre cor de pele/raça, assim como dados sobre distribuição por gênero possuirão ligação com os dados sobre faixa etária
         //Por exemplo, cada valor de idade será interseccionado entre as alternativas de gênero contidas na PNP. Já as alternativas de cor de pele/raça, de forma semelhante, conterão a intersecção para cada tipo de renda per capita familiar. Isso é necessário para permitir maiores inferências no futuro, porém, sem tornar o conjunto de dados muito grande ou complexo de se trabalhar no lado do usuário.
         //A título de comparação, se eu utilizasse os dados com um menor nível de granularidade, realizando as combinações de Cor, Renda, Idade e Gênero, haveriam 1496 registros diferentes para realizar a contagem considerando todas essas intersecções, enquanto que limitar a intersecção entre Cor e Renda (40 combinações) e Idade e Gênero (134 combinações) tornam os dados muito menores
+        //Pouco tempo, irmão, vai a faixa etária mesmo pra poupar trabalho kkkkkkkkkk
+        //No futuro eu ajeito essa budega
 
         let ageGroupsDistribution: Array<{
             age: string, //O valor da idade (ex.: 19 == 19 anos)
@@ -657,10 +748,10 @@ export default class PagesController {
         enrollments.forEach(student => {
             //Primeiro faço as verificações para registrar os dados sobre idade e distribuição de gênero
             //Verifico se a idade não existe no vetor, para adicionar ela
-            if (types.isUndefined(ageGroupsDistribution.find(ageGroup => ageGroup.age == student.idade))) {
+            if (types.isUndefined(ageGroupsDistribution.find(ageGroup => ageGroup.age == student.faixaEtaria))) {
                 //Se a idade não existe no vetor, a distribuição por gênero também não existe, então posso adicionar esses valor diretamente sem verificações
                 ageGroupsDistribution.push({
-                    age: student.idade,
+                    age: student.faixaEtaria,
                     genderDistribution: [{
                         description: student.sexo,
                         total: 1
@@ -670,7 +761,7 @@ export default class PagesController {
                 //Agora, se a idade já está cadastrada, preciso fazer as verificações para o gênero
 
                 //Pego o índice da idade no vetor
-                let ageIndex = ageGroupsDistribution.findIndex(ageGroup => ageGroup.age == student.idade);
+                let ageIndex = ageGroupsDistribution.findIndex(ageGroup => ageGroup.age == student.faixaEtaria);
 
                 //Com o índice em mãos, faço a procura pelo gênero
                 if (types.isUndefined(ageGroupsDistribution[ageIndex].genderDistribution.find(gender => gender.description == student.sexo))) {
@@ -843,13 +934,14 @@ export default class PagesController {
 
         //Atributo de nome do curso dado pela API
         courseInfo.apiName = course.nome;
-        courseInfo.apiNameFiltered = course.nome;
+        let levelOrDegree: string = '00000000000000000000000000000';
 
         //Atributos de nível e grau de curso
         switch (course.nivel) {
             case 'M':
             case 'N':
                 courseInfo.level = 'Técnico';
+                levelOrDegree = StringService.portugueseTitleCase(courseInfo.level);
                 //Testo se tem PROEJA no nome, para diferençar o integrado PROEJA do integrado ao ensino médio
                 if (/proeja/.test(course.nome.toLowerCase()))
                     courseInfo.degree = 'PROEJA';
@@ -858,6 +950,7 @@ export default class PagesController {
                 break;
             case 'T':
                 courseInfo.level = 'Técnico';
+                levelOrDegree = StringService.portugueseTitleCase(courseInfo.level);
                 courseInfo.degree = 'Subsequente';
                 break;
             case 'L':
@@ -892,11 +985,19 @@ export default class PagesController {
                     default: //TENHO QUE DEFINIR O DEFAULT
                         courseInfo.degree = 'Não identificado';
                 }
+                levelOrDegree = StringService.portugueseTitleCase(courseInfo.degree);
                 break;
             default: //TENHO QUE DEFINIR O DEFAULT
                 courseInfo.level = 'Não identificado';
                 courseInfo.degree = 'Não identificado';
+                levelOrDegree = StringService.portugueseTitleCase(courseInfo.degree);
         }
+
+        //Filtro o nome da API
+        //Pego o nível do curso + "em" para remover e ter só o nome do
+        let regex = new RegExp(`.*${levelOrDegree}(.*?) em `)
+        let apiNameTitleCase = StringService.portugueseTitleCase(courseInfo.apiName);
+        courseInfo.apiNameFiltered = apiNameTitleCase.replace(regex, '');
 
         //Atributo de modalidade
         switch (course.id_modalidade_educacao) {
@@ -955,8 +1056,9 @@ export default class PagesController {
         courseInfo.apiId = course.id_curso;
 
         //Agora preencho os atributos dependentes do PNP
-        if (!types.isNull(enrollments)) {
+        if (!types.isNull(enrollments) && !types.isUndefined(enrollments) && enrollments.length > 0) {
             //Pego o nome do curso dado pelo PNP
+            console.log(util.inspect(enrollments[0]))
             courseInfo.pnpName = enrollments[0].nomeDeCurso;
             //Pego o total de alunos matriculados
             courseInfo.enrolledStudents = enrollments.length;
@@ -972,8 +1074,14 @@ export default class PagesController {
             courseInfo.incomingStudents = incomingEnrollments.length;
             //Pego os dados do primeiro registro de aluno ingressante por causa que é para pegar a informação do curso mais atual, como do PPC mais atual
             //ALERTA: FAZER A BUSCA PARA VERIFICAR SE EXISTE MAIS DE UM TURNO DO MESMO CURSO. SE TIVER, CRIAR UM OBJETO ADICIONAL. PRECISO ANALISAR QUAL A MELHOR ABORDAGEM PARA ISSO, VISTO QUE OS DADOS DO IFFAR NÃO POSSUEM RELAÇÃO DE TURNO, JÁ QUE SÓ AFETA O GRÁFICO DE TURNO DE OFERTA (posso retornar um array, e aí dou um concat ou spread (...) ao invés de push; ou então os dados de turno viram um array)
-            courseInfo.turn = incomingEnrollments[0].turno;
-            courseInfo.courseSlots = Number(incomingEnrollments[0].vagasOfertadas);
+            console.log(util.inspect(incomingEnrollments[0]))
+            if(incomingEnrollments.length > 0){
+                courseInfo.turn = incomingEnrollments[0].turno;
+                courseInfo.courseSlots = Number(incomingEnrollments[0].vagasOfertadas);
+            }else{
+                courseInfo.turn = null;
+                courseInfo.courseSlots = null;
+            }
         } else {
             courseInfo.pnpName = null;
             courseInfo.turn = null;
