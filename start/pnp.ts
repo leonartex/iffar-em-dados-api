@@ -6,6 +6,7 @@ import util from 'util';
 
 const fs = require('fs');
 import {parse} from 'csv-parse';
+import AxiosIbge from '@ioc:Axios/Ibge';
 
 let c = {data: []}
 
@@ -98,10 +99,9 @@ async function registerEnrollment(row){
         if(!hasCity(matricula.codigoDoMunicipioComDv)){
             //console.log('Deu erro no !hasCity')
             console.log(util.inspect(cities))
-            municipio = await axios
-                .get(`https://servicodados.ibge.gov.br/api/v1/localidades/municipios/${matricula.codigoDoMunicipioComDv}`)
+            municipio = await AxiosIbge
+                .get(`${matricula.codigoDoMunicipioComDv}`)
                 .then(res => {
-                    //setTimeout(function(){console.log('Deu certo')}, 100);
                     return res.data;
                 })
                 .catch(err => {

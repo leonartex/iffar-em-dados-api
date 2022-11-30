@@ -51,7 +51,7 @@ export default class UnitsController {
 
         let location = await new LocationsController()
             .get(finalUnit);
-        let locationReq = JSON.parse(location.request);
+        let locationReq = location;
 
         // console.log("###############################")
         // console.log("Location: "+util.inspect(locationReq));

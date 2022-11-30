@@ -42,10 +42,10 @@ export default class PagesController {
         //Pego a lista de todas as unidades organizacionais para poder filtrar e localizar a unidade de ensino (campus ou campus avançado) que representa o parâmetro unitCity
         let educationalUnits = await unitsC.getEducationalUnits();
 
-        let units = await this.mountUnits(educationalUnits, true);
+        let units = await this.mountUnits([educationalUnits[0]], true);
 
-        let map = await this.getMap();
-        return map;
+        // let map = await this.getMap();
+        return units;
     }
 
     public async getAll() {
@@ -173,11 +173,12 @@ export default class PagesController {
         let educationalUnits = await unitsC.getEducationalUnits();
 
         //Filtro para pegar a unidade de ensino (campus ou campus avançado). O esperado é que unitCity já venha no formato de urlFriendly, porém, por segurança, o atributo também é formatado pelo método
-        let theUnit = educationalUnits.find(unit => StringService.urlFriendly(unit.city.nome) == StringService.urlFriendly(unitCity) && (unit.type == 'campus' || unit.type == 'campus avançado'));
+        let theUnit = educationalUnits.find(unit => StringService.urlFriendly(unit.city.nome) == StringService.urlFriendly(unitCity) && (unit.type == 'campus' || unit.type == 'advanced-campus'));
 
         //FAZ um IF aqui para retornar erro se não encontrar a unidade
         if (types.isUndefined(theUnit)) {
-
+            console.log('Undefined?')
+            console.log(util.inspect(educationalUnits));
         } else {
             let units = await this.mountUnits([theUnit], true);
 
@@ -435,7 +436,7 @@ export default class PagesController {
         if(getLocation){
             let locationC = new LocationsController();
             let location = await locationC.get(unit);
-            unit.location = locationC.locationToUnit(location.request);
+            unit.location = locationC.locationToUnit(location);
         }
 
         return unit;
@@ -462,7 +463,7 @@ export default class PagesController {
         let locationC = new LocationsController();
         let location = await locationC.get(unit);
 
-        return locationC.locationToUnit(location.request);
+        return locationC.locationToUnit(location);
     }
 
     //####

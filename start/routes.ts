@@ -30,25 +30,31 @@ import UnidadesOrganizacionaisController from 'App/Controllers/Http/iffar/Unidad
 import UnitsController from 'App/Controllers/Http/UnitsController';
 import PagesController from 'App/Controllers/Http/PagesController';
 
-Route.get('/api/location', async () => {
-  let unit = new Unit();
-  unit.city.cityId = 8883;
-  unit.state.stateId = 43;
-  unit.city.cityName = "Frederico Westphalen";
-  unit.state.stateName = "Rio Grande do Sul";
-  let location = await new LocationsController().get(unit);
+// Route.get('/api/location', async () => {
+//   let unit = new Unit();
+//   unit.city = {
+//     cityId: 8883,
+//     cityName: "Frederico Westphalen"
+//   };
+//   unit.state = {
+//     stateId: 43,
+//     stateName: "Rio Grande do Sul",
+//     stateInitials: 'RS'
+//   };
 
-  // console.log("###############################")
-  // console.log(util.inspect(location));
-  // console.log("###############################\n\n")
-  return {data: location};
-});
+//   let location = await new LocationsController().get(unit);
 
-Route.get('/api/unidadesList', async () => {
-  let units = await  new UnitsController().list()
+//   // console.log("###############################")
+//   // console.log(util.inspect(location));
+//   // console.log("###############################\n\n")
+//   return {data: location};
+// });
 
-  return {data: units};
-});
+// Route.get('/api/unidadesList', async () => {
+//   let units = await  new UnitsController().list()
+
+//   return {data: units};
+// });
 
 Route.get('/api/iffar', async () => {
   let pagesC = new PagesController();

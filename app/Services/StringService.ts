@@ -17,6 +17,7 @@ export default class StringService{
      * @returns string formatada
      */
     public static urlFriendly(str: string): string{
+        str = this.portugueseTitleCase(str);
         return this.normalizeString(str).replace(/ /g, '-').toLowerCase();
     }
     
