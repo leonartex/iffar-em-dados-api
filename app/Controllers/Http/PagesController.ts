@@ -48,10 +48,12 @@ export default class PagesController {
         return units;
     }
 
-    public async getAll() {
-        let responseCache = await Redis.get('iffar-em-dados:iffar');
-        if(responseCache){
-            return responseCache;
+    public async getAll(ignoreCache = false) {
+        if (!ignoreCache) {
+            let responseCache = await Redis.get('iffar-em-dados:iffar');
+            if (responseCache) {
+                return responseCache;
+            }
         }
 
         let unitsC = new UnidadesOrganizacionaisController();
@@ -160,14 +162,21 @@ export default class PagesController {
         }
 
         let keyName = 'iffar-em-dados:iffar';
-        let baseTime = 120 * 60;
+        let baseTime = 2 * 24 * 60 * 60;
         await Redis.set(keyName, JSON.stringify(response))
         await Redis.expire(keyName, baseTime)
 
         return response;
     };
 
-    public async getUnit(unitCity: string) {
+    public async getUnit(unitCity: string, ignoreCache = false) {
+        if (!ignoreCache) {
+            let responseCache = await Redis.get(`iffar-em-dados:campus:${StringService.urlFriendly(unitCity)}`);
+            if (responseCache) {
+                return responseCache;
+            }
+        }
+
         let unitsC = new UnidadesOrganizacionaisController();
         //Pego a lista de todas as unidades organizacionais para poder filtrar e localizar a unidade de ensino (campus ou campus avançado) que representa o parâmetro unitCity
         let educationalUnits = await unitsC.getEducationalUnits();
@@ -278,17 +287,32 @@ export default class PagesController {
                 })
             }
 
-            return {
+            let response = {
                 "units": units,
                 "infoPerYear": infoPerYear
             };
+
+            let keyName = `iffar-em-dados:campus:${StringService.urlFriendly(unitCity)}`;
+            let baseTime = 2 * 24 * 60 * 60;
+            await Redis.set(keyName, JSON.stringify(response))
+            await Redis.expire(keyName, baseTime)
+
+            return response;
 
         }
         console.log(util.inspect(theUnit));
     };
 
     //Retorna os dados necessários
-    public async getCourse(courseId: number) {
+    public async getCourse(courseId: number, ignoreCache = false) {
+        if (!ignoreCache) {
+            let responseCache = await Redis.get(`iffar-em-dados:course:${courseId}`);
+            if (responseCache) {
+                return responseCache;
+            }
+        }
+
+
         //Pego os dados do curso que é requisitado
         let cursosC = new CursosController();
         let course = await cursosC.get(courseId);
@@ -305,10 +329,10 @@ export default class PagesController {
 
         let levelOrDegree: string = '00000000000000000000000000000';
 
-        if(courseDetailing.level == 'Técnico')
+        if (courseDetailing.level == 'Técnico')
             levelOrDegree = StringService.portugueseTitleCase(courseDetailing.level);
         else
-        levelOrDegree = StringService.portugueseTitleCase(courseDetailing.degree!);
+            levelOrDegree = StringService.portugueseTitleCase(courseDetailing.degree!);
 
         //Filtro o nome da API
         //Pego o nível do curso + "em" para remover e ter só o nome do
@@ -394,11 +418,18 @@ export default class PagesController {
         let courseComponents = await this.courseComponents(course);
 
         console.log('Enviando resposta');
-        return {
+        let response = {
             courseDetailing,
             infoPerYear,
             courseComponents
         };
+
+        let keyName = `iffar-em-dados:course:${courseId}`;
+        let baseTime = 2 * 24 * 60 * 60;
+        await Redis.set(keyName, JSON.stringify(response))
+        await Redis.expire(keyName, baseTime)
+
+        return response;
 
         // let unidadesC = new UnidadesOrganizacionaisController();
         // let unit = await unidadesC.get(41);
@@ -416,24 +447,24 @@ export default class PagesController {
     //Funções utilizadas em todas
     //####
     //Função pra transformar uma unidade em Unit
-    private async unidadeOrganizacionalToUnit(unidade: UnidadeOrganizacional, getLocation = false): Promise<Unit>{
+    private async unidadeOrganizacionalToUnit(unidade: UnidadeOrganizacional, getLocation = false): Promise<Unit> {
         let unit = new Unit();
         unit.apiId = unidade.id_unidade;
         unit.name = unidade.nome;
         unit.type = unidade.type;
-        
+
         unit.city = {
             cityId: unidade.city.id_municipio,
             cityName: unidade.city.nome
         };
-        
+
         unit.state = {
             stateId: unidade.city.state.id_unidade_federativa,
             stateName: unidade.city.state.descricao,
             stateInitials: unidade.city.state.sigla
         };
 
-        if(getLocation){
+        if (getLocation) {
             let locationC = new LocationsController();
             let location = await locationC.get(unit);
             unit.location = locationC.locationToUnit(location);
@@ -443,17 +474,17 @@ export default class PagesController {
     }
 
     //Função para pegar todas as unidades para Unit
-    private async mountUnits(unidades: Array<UnidadeOrganizacional>, getLocation = false){
+    private async mountUnits(unidades: Array<UnidadeOrganizacional>, getLocation = false) {
         let units: Array<Unit> = [];
 
-        for(let unidade of unidades){
+        for (let unidade of unidades) {
             let unit = await this.unidadeOrganizacionalToUnit(unidade, getLocation)
             units.push(unit);
         }
 
         return units;
     }
-    private async getMap(){
+    private async getMap() {
         let unit = new Unit();
         unit.state = {
             stateId: 43,
@@ -828,11 +859,24 @@ export default class PagesController {
 
     private async courseComponents(course: Curso) {
         //Pego a lista de disciplinas do curso
-        let componentesC = new ComponentesCurricularesController();
-        let curricularComponents = await componentesC.getCourse(course.id_curso);
+        // let componentesC = new ComponentesCurricularesController();
+        // let curricularComponents = await componentesC.getCourse(course.id_curso);
 
-        //Crio a lista com apenas os nomes das disciplinas, utilizando o portugueseTitleCase para deixar normal os títulos
-        return curricularComponents.map(component => StringService.portugueseTitleCase(component.nome));
+        // //Crio a lista com apenas os nomes das disciplinas, utilizando o portugueseTitleCase para deixar normal os títulos
+        // return curricularComponents.map(component => StringService.portugueseTitleCase(component.nome));
+        let detailing = await this.courseDetailing(course);
+        let ultimoRecurso: Array<string> = [detailing.city!, detailing.degree!, detailing.level!];
+        if (!types.isNull(detailing.modality))
+            ultimoRecurso.push(detailing.modality);
+        if (!types.isNull(detailing.offerType))
+            ultimoRecurso.push(detailing.offerType);
+        if (types.isNull(detailing.knowledgeAxis))
+            ultimoRecurso.push(detailing.knowledgeArea!);
+        else
+            ultimoRecurso.push(detailing.knowledgeAxis!);
+        console.log(util.inspect(ultimoRecurso));
+        ultimoRecurso = ultimoRecurso.map(item => StringService.portugueseTitleCase(item));
+        return ultimoRecurso;
     }
 
 
@@ -1097,10 +1141,10 @@ export default class PagesController {
             //Pego os dados do primeiro registro de aluno ingressante por causa que é para pegar a informação do curso mais atual, como do PPC mais atual
             //ALERTA: FAZER A BUSCA PARA VERIFICAR SE EXISTE MAIS DE UM TURNO DO MESMO CURSO. SE TIVER, CRIAR UM OBJETO ADICIONAL. PRECISO ANALISAR QUAL A MELHOR ABORDAGEM PARA ISSO, VISTO QUE OS DADOS DO IFFAR NÃO POSSUEM RELAÇÃO DE TURNO, JÁ QUE SÓ AFETA O GRÁFICO DE TURNO DE OFERTA (posso retornar um array, e aí dou um concat ou spread (...) ao invés de push; ou então os dados de turno viram um array)
             console.log(util.inspect(incomingEnrollments[0]))
-            if(incomingEnrollments.length > 0){
+            if (incomingEnrollments.length > 0) {
                 courseInfo.turn = incomingEnrollments[0].turno;
                 courseInfo.courseSlots = Number(incomingEnrollments[0].vagasOfertadas);
-            }else{
+            } else {
                 courseInfo.turn = null;
                 courseInfo.courseSlots = null;
             }
@@ -1125,7 +1169,7 @@ export default class PagesController {
             projects: Array<{ //A lista de tipos de projetos com os dados do número de projetos
                 apiId: number, //O id do tipo de projeto (economiza umas linhas de código)
                 type: string, //Tipo de projeto (ensino, pesquisa ou extensão)
-                members: Array<number>, //O total de membros envolvidos por projeto. P.S.: members.lenth indica a quantia de projetos existentes
+                // members: Array<number>, //O total de membros envolvidos por projeto. P.S.: members.lenth indica a quantia de projetos existentes
                 total: number
             }>
         }> = [];
@@ -1155,7 +1199,7 @@ export default class PagesController {
             else
                 projectType = projectTypes.find(pt => pt.id_tipo_projeto == project.id_tipo_projeto);
 
-            let projectMembers = projectsMembers.filter(projectMember => projectMember.id_projeto == project.id_projeto);
+            // let projectMembers = projectsMembers.filter(projectMember => projectMember.id_projeto == project.id_projeto);
 
             //Mesma lógica para os métodos anteriores. Verifico se existe no array a área do conhecimento do projeto atual, se não, adiciono. Se tiver, verifico os tipos de projetos existentes, aí adiciono se não tiver o tipo no vetor da área e aí adiciono à contagem +1
             if (types.isUndefined(knowledgeAreasProjects.find(kap => kap.apiId == ka.id_area_conhecimento_cnpq))) {
@@ -1165,7 +1209,7 @@ export default class PagesController {
                     projects: [{
                         apiId: projectType.id_tipo_projeto,
                         type: projectType.descricao,
-                        members: [projectMembers.length], //O comprimento do vetor indica a quantia de membros no projeto
+                        // members: [projectMembers.length], //O comprimento do vetor indica a quantia de membros no projeto
                         total: 1,
                     }]
                 })
@@ -1175,12 +1219,12 @@ export default class PagesController {
                     knowledgeAreasProjects[kapIndex].projects.push({
                         apiId: projectType.id_tipo_projeto,
                         type: projectType.descricao,
-                        members: [projectMembers.length],
+                        // members: [projectMembers.length],
                         total: 1,
                     })
                 } else {
                     let projectTypeIndex = knowledgeAreasProjects[kapIndex].projects.findIndex(pt => pt.apiId == projectType?.id_tipo_projeto);
-                    knowledgeAreasProjects[kapIndex].projects[projectTypeIndex].members.push(projectMembers.length); //Adiciono o número de membros por projeto
+                    // knowledgeAreasProjects[kapIndex].projects[projectTypeIndex].members.push(projectMembers.length); //Adiciono o número de membros por projeto
                     knowledgeAreasProjects[kapIndex].projects[projectTypeIndex].total++;
                 }
             }

@@ -17,7 +17,8 @@
     "./start/routes",
     "./start/kernel",
     "./start/pnp",
-    "./start/test"
+    "./start/test",
+    "./start/events"
   ],
   "providers": [
     "./providers/AppProvider",
