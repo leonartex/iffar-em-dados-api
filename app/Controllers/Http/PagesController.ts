@@ -529,20 +529,20 @@ export default class PagesController {
     private async courseDetailing(course: Curso, year?: number) {
         class CourseDetailing {
             apiId: number;
-            level: string | null;
-            degree: string | null;
-            modality: string | null;
-            city: string | null;
-            offerType: string | null;
-            knowledgeArea: string | null;
-            knowledgeAxis: string | null;
-            courseLoad: string | null;
-            minimumCourseLoad: string | null;
-            turn: string | null;
-            courseSlots: string | null;
+            level: string | null = null;
+            degree: string | null = null;
+            modality: string | null = null;
+            city: string | null = null;
+            offerType: string | null = null;
+            knowledgeArea: string | null = null;
+            knowledgeAxis: string | null = null;
+            courseLoad: string | null = null;
+            minimumCourseLoad: string | null = null;
+            turn: string | null = null;
+            courseSlots: string | null = null;
             apiName: string;
             apiNameFiltered: string;
-            pnpName: string | null;
+            pnpName: string | null = null;
         }
         let detailing = new CourseDetailing();
         detailing.apiId = course.id_curso;
@@ -611,7 +611,7 @@ export default class PagesController {
         }
 
         // Área do conhecimento e Eixo de conhecimento (técnico)
-        if (!types.isNull(course.id_area_curso)) {
+        if (!types.isNull(course.id_area_curso) && !string.isEmpty(course.id_area_curso.toString())) {
             let areasCnpqC = new AreasCursoCnpqController();
             let area = await areasCnpqC.get(course.id_area_curso);
             detailing.knowledgeArea = area.nome;
@@ -619,7 +619,7 @@ export default class PagesController {
             detailing.knowledgeArea = null;
         }
 
-        if (!types.isNull(course.id_eixo_conhecimento)) {
+        if (!types.isNull(course.id_eixo_conhecimento) && !string.isEmpty(course.id_eixo_conhecimento.toString())) {
             let eixosC = new EixosConhecimentoController();
             let knowledgeAxis = await eixosC.get(course.id_eixo_conhecimento);
             detailing.knowledgeAxis = knowledgeAxis.nome;
@@ -900,9 +900,9 @@ export default class PagesController {
             ultimoRecurso.push(detailing.modality);
         if (!types.isNull(detailing.offerType))
             ultimoRecurso.push(detailing.offerType);
-        if (types.isNull(detailing.knowledgeAxis))
-            ultimoRecurso.push(detailing.knowledgeArea!);
-        else
+        if (!types.isNull(detailing.knowledgeArea))
+            ultimoRecurso.push(detailing.knowledgeArea!);        
+        if (!types.isNull(detailing.knowledgeAxis))
             ultimoRecurso.push(detailing.knowledgeAxis!);
         console.log(util.inspect(ultimoRecurso));
         ultimoRecurso = ultimoRecurso.map(item => StringService.portugueseTitleCase(item));
@@ -1150,6 +1150,7 @@ export default class PagesController {
         //Atributos de identificação para url (nome da cidade e id da API)
         courseInfo.cityName = city.nome;
         courseInfo.apiId = course.id_curso;
+        courseInfo.incomingStudents = students.length;
 
         //Agora preencho os atributos dependentes do PNP
         if (!types.isNull(enrollments) && !types.isUndefined(enrollments) && enrollments.length > 0) {
@@ -1167,7 +1168,7 @@ export default class PagesController {
                 return (enrollment.anoBase == year) ? true : false;
             });
             //Total de alunos ingressantes
-            courseInfo.incomingStudents = incomingEnrollments.length;
+            // courseInfo.incomingStudents = incomingEnrollments.length;
             //Pego os dados do primeiro registro de aluno ingressante por causa que é para pegar a informação do curso mais atual, como do PPC mais atual
             //ALERTA: FAZER A BUSCA PARA VERIFICAR SE EXISTE MAIS DE UM TURNO DO MESMO CURSO. SE TIVER, CRIAR UM OBJETO ADICIONAL. PRECISO ANALISAR QUAL A MELHOR ABORDAGEM PARA ISSO, VISTO QUE OS DADOS DO IFFAR NÃO POSSUEM RELAÇÃO DE TURNO, JÁ QUE SÓ AFETA O GRÁFICO DE TURNO DE OFERTA (posso retornar um array, e aí dou um concat ou spread (...) ao invés de push; ou então os dados de turno viram um array)
             console.log(util.inspect(incomingEnrollments[0]))

@@ -24,15 +24,26 @@ Event.on('renewCache', async () => {
     //Renovo o cache das páginas de todas as unidades
     let unitsC = new UnidadesOrganizacionaisController();
     let educationalUnits = await unitsC.getEducationalUnits();
-    educationalUnits.forEach(unit => pagesP.getUnit(StringService.portugueseTitleCase(unit.city.nome), true));
+    // educationalUnits.forEach(unit => pagesP.getUnit(StringService.portugueseTitleCase(unit.city.nome), true));
+    for(let unit of educationalUnits){
+        await pagesP.getUnit(StringService.portugueseTitleCase(unit.city.nome), true)
+    }
 
     //Renovo o cache das páginas de todos os cursos (técnico, graduação, pós-graduação)
     let cursosC = new CursosController();
     let apiCourses = (await cursosC.getAll()).filter(course => course.nivel != "F");
-    apiCourses.forEach(course => pagesP.getCourse(course.id_curso, true));
+    // apiCourses.forEach(course => pagesP.getCourse(course.id_curso, true));
+    for(let course of apiCourses){
+        await pagesP.getCourse(course.id_curso, true)
+    }
+
+    console.log('Renovação de cache finalizada');
 })
 
 function emitRenewCache() {
     Event.emit('renewCache', null);
 }
 setInterval(emitRenewCache, (2 * 24 * 60 * 60) - (2 * 60 * 60)); //Renovo o cache 2 horas antes do cache vencer
+
+
+// Event.emit('renewCache', null);
