@@ -46,4 +46,4 @@ function emitRenewCache() {
 setInterval(emitRenewCache, (2 * 24 * 60 * 60 * 1000) - (2 * 60 * 60 * 1000)); //Renovo o cache 2 horas antes do cache vencer
 
 
-Event.emit('renewCache', null);
+// Event.emit('renewCache', null);
