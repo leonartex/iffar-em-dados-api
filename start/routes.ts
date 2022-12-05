@@ -19,7 +19,7 @@
 */
 
 import Application from '@ioc:Adonis/Core/Application'
-import { string } from '@ioc:Adonis/Core/Helpers';
+import { string, types } from '@ioc:Adonis/Core/Helpers';
 
 import util from 'util';
 
@@ -29,6 +29,7 @@ import Unit from 'App/Models/Unit';
 import UnidadesOrganizacionaisController from 'App/Controllers/Http/iffar/UnidadesOrganizacionaisController';
 import UnitsController from 'App/Controllers/Http/UnitsController';
 import PagesController from 'App/Controllers/Http/PagesController';
+
 
 // Route.get('/api/location', async () => {
 //   let unit = new Unit();
@@ -56,25 +57,60 @@ import PagesController from 'App/Controllers/Http/PagesController';
 //   return {data: units};
 // });
 
-Route.get('/api/iffar', async () => {
-  let pagesC = new PagesController();
-  let iffarInfo = await pagesC.getAll();
+Route.get('/api/iffar', async ({response}) => {
+  try{
+    let pagesC = new PagesController();
+    let iffarInfo = await pagesC.getAll();
 
-  return iffarInfo;
+    response.status(200);
+    response.send(iffarInfo);
+  }catch(error){
+    response.status(500);
+    response.send({message: 'Erro ao processar os dados', error});
+  }
+  
+
 })
 
-Route.get('/api/unit/:city', async ({params}) => {
-  let pagesC = new PagesController();
-  let unitInfo = await pagesC.getUnit(params.city);
-
-  return unitInfo;
+Route.get('/api/unit/:city', async ({params, response}) => {
+  try{
+    let pagesC = new PagesController();
+    let unitInfo = await pagesC.getUnit(params.city);
+  
+    if(types.isUndefined(unitInfo)){
+      response.status(404);
+      response.send({message: 'Unidade de ensino não encontrada ou não existente'})
+      return response
+    }else{
+      response.status(200);
+      response.send(unitInfo);
+    }
+  }catch(error){
+    response.status(500);
+    response.send({message: 'Erro ao processar os dados da unidade de ensino', error});
+  }
+  
+  
 })
 
-Route.get('/api/course/:id', async ({params}) => {
-  let pagesC = new PagesController();
-  let courseInfo = await pagesC.getCourse(params.id);
+Route.get('/api/course/:id', async ({params, response}) => {
+  try{
+    let pagesC = new PagesController();
+    let courseInfo = await pagesC.getCourse(params.id);
+  
+    if(types.isUndefined(courseInfo) || types.isError(courseInfo)){
+      response.status(404);
+      response.send('Curso não encontrado, não existente ou problema ocasionado nos dados abertos da instituição')
+      return response;
+    }else{
+      response.status(200);
+      response.send(courseInfo);
+    }
+  }catch(error){
+    response.status(500);
+    response.send('Erro ao processar os dados do curso');
+  }
 
-  return courseInfo;
 }).where('id', Route.matchers.number())
 
 Route.get('/api/teste', async () => {

@@ -35,23 +35,34 @@ import Redis from "@ioc:Adonis/Addons/Redis";
 import UnidadeOrganizacional from "App/Models/iffar/UnidadeOrganizacional";
 import Unit from "App/Models/Unit";
 import LocationsController from "./LocationsController";
+import { Exception } from "@adonisjs/core/build/standalone";
 
 export default class PagesController {
     public async teste() {
-        let unitsC = new UnidadesOrganizacionaisController();
-        //Pego a lista de todas as unidades organizacionais para poder filtrar e localizar a unidade de ensino (campus ou campus avançado) que representa o parâmetro unitCity
-        let educationalUnits = await unitsC.getEducationalUnits();
+        // let unitsC = new UnidadesOrganizacionaisController();
+        // //Pego a lista de todas as unidades organizacionais para poder filtrar e localizar a unidade de ensino (campus ou campus avançado) que representa o parâmetro unitCity
+        // let educationalUnits = await unitsC.getEducationalUnits();
 
-        let units = await this.mountUnits([educationalUnits[0]], true);
+        // let units = await this.mountUnits([educationalUnits[0]], true);
 
-        // let map = await this.getMap();
-        return units;
+        // // let map = await this.getMap();
+        // return units;
+
+        //Pego os dados de projetos acadêmicos da unidade de ensino
+        // const projetosC = new ProjetosController();
+        // let projects = await projetosC.getAll();
+
+        // return this.projectsInfo(projects);
+
+        let cursosC = new CursosController();
+        return await cursosC.get(221241434234234234);
     }
 
     public async getAll(ignoreCache = false) {
         if (!ignoreCache) {
             let responseCache = await Redis.get('iffar-em-dados:iffar');
             if (responseCache) {
+                console.log('Página inicial vinda do cache');
                 return responseCache;
             }
         }
@@ -173,6 +184,7 @@ export default class PagesController {
         if (!ignoreCache) {
             let responseCache = await Redis.get(`iffar-em-dados:campus:${StringService.urlFriendly(unitCity)}`);
             if (responseCache) {
+                console.log('Página de unidade vinda do cache');
                 return responseCache;
             }
         }
@@ -186,8 +198,9 @@ export default class PagesController {
 
         //FAZ um IF aqui para retornar erro se não encontrar a unidade
         if (types.isUndefined(theUnit)) {
-            console.log('Undefined?')
-            console.log(util.inspect(educationalUnits));
+            console.log('Unidade undefined')
+            // console.log(util.inspect(educationalUnits));
+            return undefined;
         } else {
             let units = await this.mountUnits([theUnit], true);
 
@@ -308,6 +321,7 @@ export default class PagesController {
         if (!ignoreCache) {
             let responseCache = await Redis.get(`iffar-em-dados:course:${courseId}`);
             if (responseCache) {
+                console.log('Página de curso vinda do cache');
                 return responseCache;
             }
         }
@@ -315,7 +329,12 @@ export default class PagesController {
 
         //Pego os dados do curso que é requisitado
         let cursosC = new CursosController();
-        let course = await cursosC.get(courseId);
+        let course: Curso;
+        try{
+            course = await cursosC.get(courseId)
+        }catch(error){
+            return new Exception('Curso não encontrado ou API indisponível',404);
+        }
         //Pego as matrículas equivalente da PNP do curso sendo requisitado
         let pnpMatriculasC = new PnpMatriculasController();
         let enrollments = await pnpMatriculasC.getCourse(course);
@@ -352,6 +371,9 @@ export default class PagesController {
             let yearEnrollments = enrollments.filter(enrollment => enrollment.anoBase == pnpYears[i]);
             let yearStudents = students.filter(student => student.ano_ingresso.toString() == pnpYears[i]);
 
+            if(types.isUndefined(yearStudents) || types.isUndefined(yearEnrollments))
+                continue;
+
             let rateCards = await this.rateCards(yearEnrollments, yearStudents);
             //console.log(util.inspect(rateCards));
             let entryMethods = await this.entryMethods(yearStudents);
@@ -382,6 +404,9 @@ export default class PagesController {
 
         for (let i = 0; i < apiYears.length; i++) {
             let yearStudents = students.filter(student => student.ano_ingresso.toString() == apiYears[i]);
+
+            if(types.isUndefined(yearStudents))
+                continue;
 
             //Preencho com null as informações que dependem dos dados da PNP
             let rateCards = {
@@ -602,9 +627,14 @@ export default class PagesController {
             detailing.knowledgeAxis = null;
         }
 
+        detailing.apiName = course.nome;
+        
         //Informações extraídas dos dados da PNP
         let pnpMatriculasC = new PnpMatriculasController();
         let pnpCourseInfo = await pnpMatriculasC.getCourse(course, true);
+
+        if(types.isUndefined(pnpCourseInfo) || types.isNull(pnpCourseInfo) || pnpCourseInfo.length <= 0)
+            return detailing;
 
         // Carga horária e carga horária mínima
         detailing.courseLoad = pnpCourseInfo[0].cargaHoraria;
@@ -616,7 +646,7 @@ export default class PagesController {
         // Vagas ofertadas
         detailing.courseSlots = pnpCourseInfo[0].vagasOfertadas;
 
-        detailing.apiName = course.nome;
+        
         detailing.pnpName = pnpCourseInfo[0].nomeDeCurso;
 
         return detailing;

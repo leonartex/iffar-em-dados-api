@@ -4,6 +4,8 @@ import AxiosIffar from "@ioc:Axios/Iffar";
 import Curso from "App/Models/iffar/Curso";
 import UnidadeOrganizacional from "App/Models/iffar/UnidadeOrganizacional";
 import UnidadesOrganizacionaisController from "./UnidadesOrganizacionaisController";
+import util from 'util';
+import { Exception } from "@adonisjs/core/build/standalone";
 //import axios from "axios";
 
 export default class CursosController {
@@ -52,6 +54,7 @@ export default class CursosController {
             })
             .catch(error => {
                 console.error(error);
+                throw new Exception('Curso não encontrado ou API indisponível',404);
             });
 
         return course;
