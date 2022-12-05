@@ -43,7 +43,7 @@ Event.on('renewCache', async () => {
 function emitRenewCache() {
     Event.emit('renewCache', null);
 }
-setInterval(emitRenewCache, (2 * 24 * 60 * 60) - (2 * 60 * 60)); //Renovo o cache 2 horas antes do cache vencer
+setInterval(emitRenewCache, (2 * 24 * 60 * 60 * 1000) - (2 * 60 * 60 * 1000)); //Renovo o cache 2 horas antes do cache vencer
 
 
-// Event.emit('renewCache', null);
+Event.emit('renewCache', null);
